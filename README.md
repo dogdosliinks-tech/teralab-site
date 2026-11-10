@@ -27,7 +27,11 @@ O GitHub Pages publica a pasta raiz da branch `main`.
 
 ## Catálogo de impressão 3D
 
-O catálogo fica em `products.json`. As fotos otimizadas estão em `img/catalogo/`. Categorias: Natal, Educação, Sensoriais, Bonecos, Utilidades e Personalizados.
+O catálogo público é carregado do Supabase (`catalogo_publico`). Se a consulta falhar, o site usa o `products.json` local como reserva. As fotos atuais estão em `img/catalogo/`.
+
+O app da família, **Tera Lab Gestão**, fica em [`/app`](https://dogdosliinks-tech.github.io/teralab-site/app/): cadastro de peças (preço, custo e fotos), vendas, despesas e painel de lucro. No celular, abra pelo Chrome e use **Instalar app**.
+
+Categorias: Natal, Educação, Sensoriais, Bonecos, Utilidades e Personalizados.
 
 Cada produto segue este formato:
 

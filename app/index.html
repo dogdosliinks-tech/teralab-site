@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090d12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tera Lab">
+  <title>Tera Lab Gestão</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div id="toast" hidden></div>
+
+  <section id="screen-boot" class="screen center">
+    <div class="brand-mark">TERALAB</div>
+    <p>Carregando…</p>
+  </section>
+
+  <section id="screen-auth" class="screen center" hidden>
+    <div class="auth-card">
+      <div class="brand-mark">TERALAB</div>
+      <p class="tag">Gestão · vendas e custos</p>
+      <h1 id="auth-title">Entrar</h1>
+      <form id="auth-form">
+        <label id="auth-nome-wrap" hidden>Nome <input name="nome" id="auth-nome" type="text" autocomplete="name" placeholder="Seu nome"></label>
+        <label>E-mail <input name="email" type="email" autocomplete="username" required placeholder="voce@email.com"></label>
+        <label>Senha <input name="senha" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres"></label>
+        <p class="error" id="auth-error" hidden></p>
+        <button class="btn primary" type="submit" id="auth-submit">Entrar</button>
+      </form>
+      <button class="btn link" type="button" id="auth-toggle">Quero criar uma conta</button>
+    </div>
+  </section>
+
+  <section id="screen-pending" class="screen center" hidden>
+    <div class="auth-card">
+      <div class="brand-mark">TERALAB</div>
+      <h1>Aguardando aprovação</h1>
+      <p id="pending-text">Sua conta foi criada. Um administrador precisa aprovar o acesso antes de você usar o app.</p>
+      <button class="btn" type="button" id="pending-refresh">Já fui aprovado? Atualizar</button>
+      <button class="btn link" type="button" id="pending-logout">Sair</button>
+    </div>
+  </section>
+
+  <section id="screen-app" hidden>
+    <header class="topbar">
+      <div>
+        <strong>Tera Lab</strong>
+        <small id="who"></small>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn icon" type="button" id="btn-equipe" hidden>Equipe</button>
+        <button class="btn icon" type="button" id="btn-sair">Sair</button>
+      </div>
+    </header>
+    <main id="content" class="content"></main>
+    <nav class="tabbar" aria-label="Navegação">
+      <button type="button" data-view="painel">Painel</button>
+      <button type="button" data-view="produtos">Peças</button>
+      <button type="button" data-view="nova-venda" class="tab-plus">Venda</button>
+      <button type="button" data-view="vendas">Vendas</button>
+      <button type="button" data-view="custos">Custos</button>
+    </nav>
+  </section>
+</body>
+</html>

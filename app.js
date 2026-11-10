@@ -345,29 +345,78 @@ if (year) year.textContent = new Date().getFullYear();
 setCatalogVisible(false);
 updateCart();
 
-fetch("products.json")
+const SUPABASE_URL = "https://dcmzicdxgnvtololdmqk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjbXppY2R4Z252dG9sb2xkbXFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzMTUzODMsImV4cCI6MjEwOTg5MTM4M30.oBMkUhijsK2kQTRVaWF3s84scJwRIQIuTK4fICLjaTU";
+
+function toPrice(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function isValidProduct(p) {
+  return (
+    p &&
+    typeof p.id === "string" &&
+    typeof p.name === "string" &&
+    typeof p.category === "string" &&
+    typeof p.description === "string" &&
+    (p.price === null || (typeof p.price === "number" && Number.isFinite(p.price) && p.price >= 0))
+  );
+}
+
+function mapCatalogRow(row) {
+  if (!row || typeof row !== "object") return null;
+  const imagens = Array.isArray(row.imagens) ? row.imagens.filter((src) => typeof src === "string" && src) : [];
+  return {
+    id: row.id,
+    name: row.nome,
+    category: row.categoria,
+    description: row.descricao,
+    price: row.preco_label === "sob consulta" ? null : toPrice(row.preco),
+    priceFrom: row.preco_label === "a partir de",
+    illustrative: !!row.ilustrativa,
+    image: imagens[0] || "",
+    images: imagens
+  };
+}
+
+function applyProducts(data) {
+  if (!Array.isArray(data)) throw new Error("catalog");
+  products = data.filter(isValidProduct);
+  setCatalogVisible(products.length > 0);
+  if (products.length) {
+    renderProducts();
+    updateCart();
+  }
+}
+
+function loadLocalCatalog() {
+  return fetch("products.json")
+    .then((r) => {
+      if (!r.ok) throw new Error("catalog");
+      return r.json();
+    })
+    .then(applyProducts);
+}
+
+fetch(SUPABASE_URL + "/rest/v1/catalogo_publico?select=*&order=ordem.asc,nome.asc", {
+  headers: {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: "Bearer " + SUPABASE_ANON_KEY
+  }
+})
   .then((r) => {
-    if (!r.ok) throw new Error("catalog");
+    if (!r.ok) throw new Error("sb");
     return r.json();
   })
-  .then((data) => {
-    if (!Array.isArray(data)) throw new Error("catalog");
-    products = data.filter(
-      (p) =>
-        p &&
-        typeof p.id === "string" &&
-        typeof p.name === "string" &&
-        typeof p.category === "string" &&
-        typeof p.description === "string" &&
-        (p.price === null || (typeof p.price === "number" && Number.isFinite(p.price) && p.price >= 0))
-    );
-    setCatalogVisible(products.length > 0);
-    if (products.length) {
-      renderProducts();
-      updateCart();
-    }
+  .then((rows) => {
+    if (!Array.isArray(rows)) throw new Error("sb");
+    applyProducts(rows.map(mapCatalogRow));
   })
   .catch(() => {
-    setCatalogVisible(false);
-    updateCart();
+    loadLocalCatalog().catch(() => {
+      setCatalogVisible(false);
+      updateCart();
+    });
   });
