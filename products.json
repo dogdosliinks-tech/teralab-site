@@ -12,7 +12,7 @@
     "name": "Presépio Dourado com Estrela",
     "category": "Natal",
     "description": "Presépio dourado com a Sagrada Família sob um arco e a Estrela de Belém. Peça maior, para mesa, rack ou para presentear.",
-    "price": 54.9,
+    "price": 49.9,
     "image": "img/catalogo/presepio-dourado-estrela.webp"
   },
   {
@@ -20,16 +20,16 @@
     "name": "Presépio Arco Dourado",
     "category": "Natal",
     "description": "Presépio dourado com arco, Sagrada Família, reis magos e animais. Peça completa para a decoração de Natal.",
-    "price": 54.9,
+    "price": 49.9,
     "image": "img/catalogo/presepio-arco-dourado.webp"
   },
   {
-    "id": "presepio-arco-rose",
-    "name": "Presépio Arco Rose",
+    "id": "presepio-arco-prateado",
+    "name": "Presépio Arco Prateado",
     "category": "Natal",
-    "description": "Mesmo presépio com arco, Sagrada Família, reis e animais, no acabamento rose. Peça para a decoração de Natal.",
-    "price": 54.9,
-    "image": "img/catalogo/presepio-arco-rose.webp"
+    "description": "Mesmo presépio com arco, Sagrada Família, reis e animais, no acabamento prateado. Peça para a decoração de Natal.",
+    "price": 29.9,
+    "image": "img/catalogo/presepio-arco-prateado.webp"
   },
   {
     "id": "arvore-natal-3d",
@@ -104,15 +104,30 @@
     "category": "Utilidades",
     "description": "Caixa compacta para frascos e ampolas, com trava. Deixa tudo em pé, separado e protegido. Acabamento preto nas fotos.",
     "price": 25,
-    "image": "img/catalogo/porta-ampolas-pequeno.webp"
+    "image": "img/catalogo/porta-ampolas-pequeno.webp",
+    "images": [
+      "img/catalogo/porta-ampolas-pequeno.webp",
+      "img/catalogo/porta-ampolas-pequeno-2.webp",
+      "img/catalogo/porta-ampolas-pequeno-3.webp"
+    ]
   },
   {
     "id": "porta-ampolas-grande",
     "name": "Porta-ampolas / porta-peptídeos grande",
     "category": "Utilidades",
     "description": "Caixa grande para frascos, ampolas e compartimentos extras (algodão, seringas). Tampa com trava. Nas fotos aparece branca e laranja.",
-    "price": 35,
-    "image": "img/catalogo/porta-ampolas-grande.webp"
+    "price": 44.9,
+    "image": "img/catalogo/porta-ampolas-grande.webp",
+    "images": [
+      "img/catalogo/porta-ampolas-grande.webp",
+      "img/catalogo/porta-ampolas-grande-2.webp",
+      "img/catalogo/porta-ampolas-grande-3.webp",
+      "img/catalogo/porta-ampolas-grande-4.webp",
+      "img/catalogo/porta-ampolas-grande-5.webp",
+      "img/catalogo/porta-ampolas-grande-6.webp",
+      "img/catalogo/porta-ampolas-grande-7.webp",
+      "img/catalogo/porta-ampolas-grande-8.webp"
+    ]
   },
   {
     "id": "chaveiros-personalizados",

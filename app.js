@@ -141,16 +141,55 @@ function renderProducts() {
   const grid = el("div", undefined, "product-grid");
   list.forEach((p) => {
     const card = el("article", undefined, "product-card");
-    if (p.image) {
+    const photos = [];
+    if (Array.isArray(p.images)) photos.push(...p.images.filter((src) => typeof src === "string" && src));
+    if (p.image && !photos.includes(p.image)) photos.unshift(p.image);
+    if (photos.length) {
       const media = el("div", undefined, "product-media");
       const img = el("img");
-      img.src = p.image;
-      img.alt = p.illustrative ? p.name + " (imagem ilustrativa)" : p.name;
+      let index = 0;
+      const caption = (i) =>
+        (p.illustrative ? p.name + " (imagem ilustrativa)" : p.name) +
+        (photos.length > 1 ? " — foto " + (i + 1) + " de " + photos.length : "");
+      const show = (i) => {
+        index = i;
+        img.src = photos[i];
+        img.alt = caption(i);
+        if (thumbs) {
+          [...thumbs.children].forEach((b, j) => {
+            b.classList.toggle("active", j === i);
+            b.setAttribute("aria-pressed", String(j === i));
+          });
+        }
+      };
       img.loading = "lazy";
       img.decoding = "async";
       media.append(img);
       if (p.illustrative) media.append(el("span", "Imagem ilustrativa", "product-badge"));
       card.append(media);
+      let thumbs;
+      if (photos.length > 1) {
+        thumbs = el("div", undefined, "product-thumbs");
+        thumbs.setAttribute("role", "group");
+        thumbs.setAttribute("aria-label", "Fotos de " + p.name);
+        photos.forEach((src, i) => {
+          const b = el("button");
+          b.type = "button";
+          b.setAttribute("aria-label", "Ver foto " + (i + 1) + " de " + p.name);
+          const thumb = el("img");
+          thumb.src = src;
+          thumb.alt = "";
+          thumb.loading = "lazy";
+          thumb.decoding = "async";
+          b.append(thumb);
+          b.addEventListener("click", () => show(i));
+          thumbs.append(b);
+        });
+        card.append(thumbs);
+        img.style.cursor = "pointer";
+        img.addEventListener("click", () => show((index + 1) % photos.length));
+      }
+      show(0);
     }
     const body = el("div", undefined, "product-body");
     body.append(el("small", p.category.toUpperCase()), el("h3", p.name), el("p", p.description), el("strong", priceLabel(p)));

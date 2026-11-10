@@ -51,7 +51,8 @@ Cada produto segue este formato:
 - `price`: número em reais, ou `null` para “Sob consulta”
 - `priceFrom` (opcional): se verdadeiro, o preço aparece como “A partir de R$ …”
 - `illustrative` (opcional): se verdadeiro, a foto exibe o selo “Imagem ilustrativa”
-- `image` (opcional): caminho relativo da foto
+- `image` (opcional): caminho relativo da foto de capa
+- `images` (opcional): lista de fotos da galeria; a primeira é a capa
 
 Peças com valor sob consulta abrem o WhatsApp com a mensagem pronta, em vez de irem para a sacola. O pedido da sacola e o formulário de encomenda também abrem o WhatsApp para revisão. Nada é enviado sozinho.
 
