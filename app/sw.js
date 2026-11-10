@@ -1,4 +1,4 @@
-const CACHE = "teralab-gestao-v1";
+const CACHE = "teralab-gestao-v2";
 const ASSETS = [
   "./",
   "./index.html",

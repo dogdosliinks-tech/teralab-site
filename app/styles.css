@@ -65,7 +65,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .photos .photo{position:relative}
 .photos .photo button{position:absolute;top:-6px;right:-6px;width:28px;height:28px;border-radius:50%;border:0;background:var(--danger);color:#fff;min-height:28px;padding:0}
 .margin-box{background:var(--panel2);border:1px dashed var(--border);border-radius:6px;padding:12px}
-.tabbar{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 8px calc(8px + var(--safe-bottom));background:rgba(9,13,18,.96);border-top:1px solid var(--border);z-index:20}
+.tabbar{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:8px 8px calc(8px + var(--safe-bottom));background:rgba(9,13,18,.96);border-top:1px solid var(--border);z-index:20}
 .tabbar button{background:none;border:0;color:var(--muted);font-size:11px;font-weight:700;min-height:56px;border-radius:8px}
 .tabbar button.active{color:var(--text);background:var(--panel)}
 .tabbar .tab-plus{background:var(--orange);color:#080d12}
@@ -79,3 +79,5 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
   .grid-cards{grid-template-columns:repeat(4,1fr)}
   .stat.wide{grid-column:auto}
 }
+
+.calc-frame{display:block;width:100%;height:calc(100vh - 190px);min-height:480px;border:0;border-radius:12px;background:#E7E4DD}

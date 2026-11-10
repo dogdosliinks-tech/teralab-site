@@ -135,6 +135,15 @@ function render() {
   else if (view === "vendas") renderVendas(root);
   else if (view === "custos") renderCustos(root);
   else if (view === "equipe") renderEquipe(root);
+  else if (view === "calculadora") renderCalculadora(root);
+}
+
+function renderCalculadora(root) {
+  const f = document.createElement("iframe");
+  f.src = "../calculadora/?app=1";
+  f.title = "Calculadora de custo 3D";
+  f.className = "calc-frame";
+  root.append(f);
 }
 
 function monthPicker() {
