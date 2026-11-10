@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<title>Calculadora de custo 3D · TeraLab</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32">
+<style>
+  :root{
+    color-scheme:light only;
+    --concreto:#E7E4DD;
+    --papel:#FFFFFF;
+    --tinta:#16181A;
+    --tinta-fraca:#6B6E70;
+    --linha:#D3CFC6;
+    --quente:#F4511E;
+    --frio:#14615C;
+    --areia:#C8B896;
+    --grafite:#3C4043;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+    --texto:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--concreto)}
+  body{
+    background:var(--concreto);
+    color:var(--tinta);
+    font-family:var(--texto);
+    font-size:16px;
+    line-height:1.45;
+    padding:18px 14px 60px;
+    max-width:640px;
+    margin:0 auto;
+  }
+  header{margin:6px 0 20px}
+  .voltar{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--tinta-fraca);text-decoration:none;margin-bottom:10px}
+  .voltar:hover{color:var(--quente)}
+  h1{
+    font-size:26px;
+    font-weight:800;
+    letter-spacing:-.03em;
+    margin:0;
+    line-height:1.05;
+  }
+  header p{
+    margin:6px 0 0;
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--tinta-fraca);
+  }
+
+  .bloco{
+    background:var(--papel);
+    border:1px solid var(--linha);
+    border-radius:4px;
+    padding:16px 14px;
+    margin-bottom:14px;
+  }
+  .rotulo-bloco{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--tinta-fraca);
+    margin:0 0 14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .rotulo-bloco::after{content:"";flex:1;height:1px;background:var(--linha)}
+
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+  .ajuda{font-weight:400;color:var(--tinta-fraca);font-size:12px}
+  input[type=text]{
+    width:100%;
+    font-family:var(--mono);
+    font-size:17px;
+    padding:11px 12px;
+    border:1px solid var(--linha);
+    border-radius:3px;
+    background:#FBFAF8;
+    color:var(--tinta);
+  }
+  input[type=text]:focus{outline:2px solid var(--quente);outline-offset:1px;border-color:transparent}
+  .campo{margin-bottom:14px}
+  .dupla{display:flex;gap:10px}
+  .dupla>div{flex:1}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    font-family:var(--mono);
+    font-size:14px;
+    padding:9px 14px;
+    border:1px solid var(--linha);
+    background:#FBFAF8;
+    border-radius:3px;
+    cursor:pointer;
+    color:var(--tinta);
+  }
+  .chip[aria-pressed=true]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+  .chip:focus-visible{outline:2px solid var(--quente);outline-offset:2px}
+
+  details summary{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--tinta-fraca);
+    cursor:pointer;
+    list-style:none;
+    padding:2px 0;
+  }
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"▸ ";color:var(--quente)}
+  details[open] summary::before{content:"▾ "}
+  details[open] summary{margin-bottom:14px}
+
+  .botao{
+    width:100%;
+    border:none;
+    background:var(--quente);
+    color:#fff;
+    font-family:var(--texto);
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:.01em;
+    padding:16px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  .botao:active{transform:translateY(1px)}
+  .botao:focus-visible{outline:3px solid var(--tinta);outline-offset:2px}
+  .botao.secundario{
+    background:var(--papel);
+    color:var(--tinta);
+    border:2px solid var(--tinta);
+    font-size:15px;
+    padding:14px;
+    font-weight:700;
+  }
+  #btnPdf{background:var(--tinta);color:var(--papel)}
+
+  /* resultado */
+  #resultado{display:none}
+  #resultado.visivel{display:block;animation:sobe .28s ease-out}
+  @keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .preco{
+    background:var(--tinta);
+    color:var(--papel);
+    border-radius:4px;
+    padding:18px 16px;
+    margin-bottom:14px;
+  }
+  .preco .cap{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#9A9C9E;
+    margin:0;
+  }
+  .preco .valor{
+    font-family:var(--mono);
+    font-size:40px;
+    font-weight:700;
+    letter-spacing:-.02em;
+    margin:2px 0 0;
+    color:#fff;
+  }
+  .preco .sub{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--areia);
+    margin:8px 0 0;
+  }
+  .preco #linhaLote{
+    color:#fff;
+    border-top:1px solid #3C4043;
+    padding-top:8px;
+    font-size:13px;
+  }
+  .preco #linhaLote:empty{display:none}
+
+  .pilha{display:flex;height:16px;border-radius:2px;overflow:hidden;margin-bottom:12px}
+  .pilha span{display:block;height:100%}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+  td{padding:8px 0;border-bottom:1px dotted var(--linha)}
+  td:last-child{text-align:right;white-space:nowrap}
+  .marca{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:8px;vertical-align:baseline}
+  tr.total td{border-bottom:none;border-top:1px solid var(--tinta);font-weight:700;padding-top:10px}
+  tr.lote td{border-bottom:none;color:var(--tinta-fraca)}
+
+  .aviso{
+    font-size:12.5px;
+    color:var(--tinta-fraca);
+    background:#FBFAF8;
+    border-left:2px solid var(--areia);
+    padding:8px 10px;
+    margin-top:12px;
+  }
+  .status{font-family:var(--mono);font-size:12px;color:var(--frio);margin-top:10px;min-height:16px}
+  .status.erro{color:var(--quente)}
+  input[type=file]{display:none}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+  .acoes{display:flex;gap:10px;margin-bottom:14px;padding:12px}
+  .acoes .botao{flex:1}
+
+  #folha{display:none}
+
+  @media print{
+    @page{margin:16mm}
+    body{background:#fff;padding:0;max-width:none;font-size:12pt}
+    header,#blocoEntrada,#blocoFixos,.acoes,.status{display:none!important}
+    #folha{display:block;margin-bottom:16px}
+    #folha h2{font-size:20pt;margin:0;letter-spacing:-.02em}
+    #folha p{font-family:var(--mono);font-size:9pt;letter-spacing:.12em;text-transform:uppercase;color:#000;margin:4px 0 0}
+    #resultado{display:block!important}
+    .bloco{border:1px solid #000;break-inside:avoid}
+    .preco{background:#fff;color:#000;border:2px solid #000}
+    .preco .cap{color:#000}
+    .preco .valor{color:#000;font-size:30pt}
+    .preco .sub{color:#000}
+    .pilha{border:1px solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .pilha span,.marca{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .aviso{background:#fff;border-left:2px solid #000;color:#000}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="voltar" href="../">← TeraLab</a>
+  <h1>Quanto custa essa peça</h1>
+  <p>Filamento · energia · máquina · falha · margem</p>
+</header>
+
+<div class="bloco" id="blocoEntrada">
+  <p class="rotulo-bloco">Esta impressão</p>
+
+  <div class="campo">
+    <label for="nome">Nome da peça ou projeto</label>
+    <input type="text" id="nome" placeholder="Suporte de planta Stealth">
+  </div>
+
+  <div class="campo">
+    <label for="peso">Peso da peça <span class="ajuda">em gramas</span></label>
+    <input type="text" id="peso" inputmode="decimal" placeholder="120">
+  </div>
+
+  <div class="campo">
+    <label for="tempo">Tempo de impressão <span class="ajuda">em horas, ex.: 3,9 ou 3h54</span></label>
+    <input type="text" id="tempo" inputmode="decimal" placeholder="3,9">
+  </div>
+
+  <div class="campo">
+    <label for="qtd">Quantidade de peças</label>
+    <input type="text" id="qtd" inputmode="numeric" value="1">
+  </div>
+
+  <div class="campo">
+    <label>Depreciação da máquina <span class="ajuda">quanto dela entra nesta peça</span></label>
+    <div class="chips" id="chipsDep">
+      <button type="button" class="chip" data-d="100" aria-pressed="true">100%</button>
+      <button type="button" class="chip" data-d="75">75%</button>
+      <button type="button" class="chip" data-d="50">50%</button>
+      <button type="button" class="chip" data-d="25">25%</button>
+      <button type="button" class="chip" data-d="manual">R$</button>
+    </div>
+    <div id="caixaDep" style="display:none;margin-top:10px">
+      <input type="text" id="depManual" inputmode="decimal" placeholder="valor em reais por peça">
+    </div>
+  </div>
+
+  <div class="campo">
+    <label>Margem de lucro <span class="ajuda">markup sobre o custo</span></label>
+    <div class="chips" id="chipsMargem">
+      <button type="button" class="chip" data-m="50">50%</button>
+      <button type="button" class="chip" data-m="75">75%</button>
+      <button type="button" class="chip" data-m="100" aria-pressed="true">100%</button>
+      <button type="button" class="chip" data-m="outro">outro</button>
+    </div>
+    <div id="caixaOutro" style="display:none;margin-top:10px">
+      <input type="text" id="margemOutro" inputmode="decimal" placeholder="130">
+    </div>
+  </div>
+
+  <button class="botao" id="calcular">Calcular preço</button>
+
+  <div class="status" id="statusFoto"></div>
+</div>
+
+<div id="resultado">
+  <div id="folha">
+    <h2 id="folhaNome"></h2>
+    <p id="folhaData"></p>
+  </div>
+  <div class="preco">
+    <p class="cap">Preço de venda por peça</p>
+    <p class="valor" id="precoFinal">R$ 0,00</p>
+    <p class="sub" id="linhaLucro"></p>
+    <p class="sub" id="linhaLote"></p>
+  </div>
+  <div class="bloco">
+    <p class="rotulo-bloco">Como o preço se forma</p>
+    <div class="pilha" id="pilha"></div>
+    <table id="tabela"></table>
+    <div class="aviso" id="avisoUnitario"></div>
+  </div>
+  <div class="bloco acoes">
+    <button class="botao secundario" id="btnPdf">Gerar PDF</button>
+    <button class="botao secundario" id="btnNova">Nova peça</button>
+  </div>
+</div>
+
+<div class="bloco" id="blocoFixos">
+  <details id="fixos">
+    <summary>Meus valores fixos</summary>
+
+    <div class="dupla campo">
+      <div>
+        <label for="precoRolo">Preço do rolo <span class="ajuda">R$</span></label>
+        <input type="text" id="precoRolo" inputmode="decimal">
+      </div>
+      <div>
+        <label for="pesoRolo">Peso do rolo <span class="ajuda">g</span></label>
+        <input type="text" id="pesoRolo" inputmode="decimal">
+      </div>
+    </div>
+
+    <div class="dupla campo">
+      <div>
+        <label for="tarifa">Tarifa kWh <span class="ajuda">R$</span></label>
+        <input type="text" id="tarifa" inputmode="decimal">
+      </div>
+      <div>
+        <label for="potencia">Potência <span class="ajuda">watts</span></label>
+        <input type="text" id="potencia" inputmode="decimal">
+      </div>
+    </div>
+
+    <div class="dupla campo">
+      <div>
+        <label for="valorMaquina">Valor da impressora <span class="ajuda">R$</span></label>
+        <input type="text" id="valorMaquina" inputmode="decimal">
+      </div>
+      <div>
+        <label for="vidaUtil">Vida útil <span class="ajuda">horas</span></label>
+        <input type="text" id="vidaUtil" inputmode="decimal">
+      </div>
+    </div>
+
+    <div class="dupla campo">
+      <div>
+        <label for="embalagem">Embalagem <span class="ajuda">R$ por peça</span></label>
+        <input type="text" id="embalagem" inputmode="decimal">
+      </div>
+      <div>
+        <label for="falha">Taxa de falha <span class="ajuda">%</span></label>
+        <input type="text" id="falha" inputmode="decimal">
+      </div>
+    </div>
+
+    <div class="status" id="statusFixos"></div>
+  </details>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var PADRAO = {
+    precoRolo:120, pesoRolo:1000,
+    tarifa:1.03, potencia:120,
+    valorMaquina:4500, vidaUtil:5000,
+    embalagem:3, falha:8,
+    margem:100
+  };
+  var CHAVE = "custo3d:config";
+  var config = Object.assign({}, PADRAO);
+
+  var COR = {
+    filamento:"#F4511E",
+    energia:"#14615C",
+    maquina:"#3C4043",
+    falha:"#C8B896",
+    embalagem:"#8E9BA6"
+  };
+
+  var el = function(id){ return document.getElementById(id); };
+
+  /* ---------- guarda os valores fixos ---------- */
+  var deposito = {
+    ler:function(){
+      try{
+        if(window.storage && window.storage.get){
+          return window.storage.get(CHAVE).then(function(r){
+            return r && r.value ? JSON.parse(r.value) : null;
+          }).catch(function(){ return null; });
+        }
+      }catch(e){}
+      try{
+        var bruto = window.localStorage.getItem(CHAVE);
+        return Promise.resolve(bruto ? JSON.parse(bruto) : null);
+      }catch(e){ return Promise.resolve(null); }
+    },
+    gravar:function(obj){
+      var texto = JSON.stringify(obj);
+      try{
+        if(window.storage && window.storage.set){
+          return window.storage.set(CHAVE, texto).catch(function(){});
+        }
+      }catch(e){}
+      try{ window.localStorage.setItem(CHAVE, texto); }catch(e){}
+      return Promise.resolve();
+    }
+  };
+
+  /* ---------- números ---------- */
+  function num(v){
+    if(v === null || v === undefined) return 0;
+    var s = String(v).trim().replace(/[^\d,.-]/g,"");
+    if(!s) return 0;
+    if(s.indexOf(",") > -1){
+      s = s.replace(/\./g,"").replace(",",".");
+    }else if(/^-?\d{1,3}(\.\d{3})+$/.test(s)){
+      s = s.replace(/\./g,"");
+    }
+    var n = parseFloat(s);
+    return isFinite(n) ? n : 0;
+  }
+  function horasDe(v){
+    var s = String(v || "").trim().toLowerCase().replace(/\s/g,"");
+    var m = s.match(/^(\d+)[h:](\d{1,2})/);
+    if(m) return parseInt(m[1],10) + parseInt(m[2],10)/60;
+    return num(s);
+  }
+  function hMin(h){
+    var inteiras = Math.floor(h);
+    var min = Math.round((h - inteiras) * 60);
+    if(min === 60){ inteiras += 1; min = 0; }
+    return inteiras + "h" + (min < 10 ? "0" : "") + min;
+  }
+  function reais(n){
+    return "R$ " + n.toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function decimal(n, casas){
+    return n.toLocaleString("pt-BR",{minimumFractionDigits:casas, maximumFractionDigits:casas});
+  }
+
+  /* ---------- depreciação ---------- */
+  var depPct = 100;
+  var depManual = null;
+  var chipsDep = Array.prototype.slice.call(document.querySelectorAll("#chipsDep .chip"));
+
+  chipsDep.forEach(function(c){
+    c.addEventListener("click", function(){
+      chipsDep.forEach(function(x){ x.setAttribute("aria-pressed", x === c ? "true" : "false"); });
+      var v = c.getAttribute("data-d");
+      if(v === "manual"){
+        el("caixaDep").style.display = "block";
+        el("depManual").focus();
+        depManual = el("depManual").value.trim() === "" ? null : num(el("depManual").value);
+      }else{
+        el("caixaDep").style.display = "none";
+        depManual = null;
+        depPct = num(v);
+      }
+    });
+  });
+  el("depManual").addEventListener("input", function(){
+    depManual = this.value.trim() === "" ? null : num(this.value);
+  });
+
+  /* ---------- margem ---------- */
+  var margemAtual = PADRAO.margem;
+  var chips = Array.prototype.slice.call(document.querySelectorAll("#chipsMargem .chip"));
+
+  function pintarChips(alvo){
+    chips.forEach(function(c){ c.setAttribute("aria-pressed", c === alvo ? "true" : "false"); });
+  }
+  chips.forEach(function(c){
+    c.addEventListener("click", function(){
+      pintarChips(c);
+      var v = c.getAttribute("data-m");
+      if(v === "outro"){
+        el("caixaOutro").style.display = "block";
+        el("margemOutro").focus();
+        margemAtual = num(el("margemOutro").value);
+      }else{
+        el("caixaOutro").style.display = "none";
+        margemAtual = num(v);
+      }
+      salvarConfig();
+    });
+  });
+  el("margemOutro").addEventListener("input", function(){
+    margemAtual = num(this.value);
+    salvarConfig();
+  });
+
+  /* ---------- campos fixos ---------- */
+  var camposFixos = ["precoRolo","pesoRolo","tarifa","potencia","valorMaquina","vidaUtil","embalagem","falha"];
+
+  function pintarFixos(){
+    camposFixos.forEach(function(k){
+      el(k).value = config[k].toLocaleString("pt-BR",{
+        useGrouping:false,
+        minimumFractionDigits:0,
+        maximumFractionDigits:(k === "tarifa" ? 3 : 2)
+      });
+    });
+    if(config.margem === 50 || config.margem === 75 || config.margem === 100){
+      chips.forEach(function(c){
+        if(num(c.getAttribute("data-m")) === config.margem) pintarChips(c);
+      });
+      el("caixaOutro").style.display = "none";
+    }else if(config.margem){
+      pintarChips(chips[3]);
+      el("caixaOutro").style.display = "block";
+      el("margemOutro").value = decimal(config.margem, 0);
+    }
+    margemAtual = config.margem;
+  }
+
+  var avisoTempo;
+  function salvarConfig(){
+    camposFixos.forEach(function(k){ config[k] = num(el(k).value); });
+    config.margem = margemAtual;
+    deposito.gravar(config);
+    var s = el("statusFixos");
+    s.className = "status";
+    s.textContent = "valores guardados";
+    clearTimeout(avisoTempo);
+    avisoTempo = setTimeout(function(){ s.textContent = ""; }, 1600);
+  }
+  camposFixos.forEach(function(k){
+    el(k).addEventListener("change", salvarConfig);
+  });
+
+  /* ---------- cálculo ---------- */
+  function calcular(){
+    camposFixos.forEach(function(k){ config[k] = num(el(k).value); });
+
+    var peso = num(el("peso").value);
+    var horas = horasDe(el("tempo").value);
+    var qtd = Math.max(1, Math.round(num(el("qtd").value) || 1));
+
+    if(peso <= 0 || horas <= 0){
+      var st = el("statusFoto");
+      st.className = "status erro";
+      st.textContent = "preencha o peso e o tempo da impressão";
+      return;
+    }
+
+    var pesoRolo = config.pesoRolo > 0 ? config.pesoRolo : 1000;
+    var vidaUtil = config.vidaUtil > 0 ? config.vidaUtil : 1;
+
+    var filamento = (peso / pesoRolo) * config.precoRolo;
+    var energia = (config.potencia / 1000) * horas * config.tarifa;
+    var maquinaCheia = horas * (config.valorMaquina / vidaUtil);
+    var maquina, notaMaquina;
+    if(depManual !== null){
+      maquina = depManual;
+      notaMaquina = "valor fixado";
+    }else{
+      maquina = maquinaCheia * (depPct / 100);
+      notaMaquina = decimal(horas, 2) + " h" + (depPct < 100 ? " · " + decimal(depPct,0) + "%" : "");
+    }
+
+    var base = filamento + energia + maquina;
+    var falha = base * (config.falha / 100);
+    var embalagem = config.embalagem;
+
+    var custo = base + falha + embalagem;
+    var preco = custo * (1 + margemAtual/100);
+    var lucro = preco - custo;
+
+    var linhas = [
+      ["Filamento", filamento, COR.filamento, decimal(peso,0) + " g"],
+      ["Energia", energia, COR.energia, decimal((config.potencia/1000)*horas, 2) + " kWh · " + hMin(horas)],
+      ["Máquina", maquina, COR.maquina, notaMaquina],
+      ["Falha e retrabalho", falha, COR.falha, decimal(config.falha,0) + "%"],
+      ["Embalagem", embalagem, COR.embalagem, ""]
+    ];
+
+    var pilha = "";
+    linhas.forEach(function(l){
+      var p = custo > 0 ? (l[1]/custo)*100 : 0;
+      pilha += '<span style="width:' + p.toFixed(2) + '%;background:' + l[2] + '"></span>';
+    });
+    el("pilha").innerHTML = pilha;
+
+    var html = "";
+    linhas.forEach(function(l){
+      html += '<tr><td><span class="marca" style="background:' + l[2] + '"></span>' + l[0] +
+              (l[3] ? ' <span style="color:#6B6E70">' + l[3] + '</span>' : '') +
+              '</td><td>' + reais(l[1]) + '</td></tr>';
+    });
+    html += '<tr class="total"><td>Custo de uma peça</td><td>' + reais(custo) + '</td></tr>';
+    if(qtd > 1){
+      html += '<tr class="lote"><td>Custo das ' + qtd + ' peças</td><td>' + reais(custo * qtd) + '</td></tr>';
+    }
+    el("tabela").innerHTML = html;
+
+    el("precoFinal").textContent = reais(preco);
+    el("linhaLucro").textContent = "lucro de " + reais(lucro) +
+      " por peça · markup de " + decimal(margemAtual, 0) + "%";
+
+    el("linhaLote").textContent = qtd > 1
+      ? qtd + " peças fecham em " + reais(preco * qtd) + ", com lucro de " + reais(lucro * qtd)
+      : "";
+
+    el("avisoUnitario").textContent = "Abaixo de " + reais(custo) + " você trabalha de graça.";
+
+    var nome = el("nome").value.trim();
+    el("folhaNome").textContent = nome || "Orçamento de impressão 3D";
+    el("folhaData").textContent = new Date().toLocaleDateString("pt-BR",
+      {day:"2-digit", month:"long", year:"numeric"}) + " · " + qtd + (qtd > 1 ? " peças" : " peça");
+
+    el("resultado").classList.add("visivel");
+    el("statusFoto").textContent = "";
+    el("statusFoto").className = "status";
+    salvarConfig();
+    el("resultado").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  el("calcular").addEventListener("click", calcular);
+
+  /* ---------- PDF do resumo ---------- */
+  el("btnPdf").addEventListener("click", function(){
+    var nome = el("nome").value.trim();
+    var titulo = document.title;
+    if(nome) document.title = nome.replace(/[\\/:*?"<>|]/g,"") + " orçamento";
+    window.print();
+    setTimeout(function(){ document.title = titulo; }, 800);
+  });
+
+  /* ---------- nova peça ---------- */
+  el("btnNova").addEventListener("click", function(){
+    ["nome","peso","tempo"].forEach(function(k){ el(k).value = ""; });
+    el("qtd").value = "1";
+    el("resultado").classList.remove("visivel");
+    el("statusFoto").textContent = "";
+    el("statusFoto").className = "status";
+    window.scrollTo({top:0, behavior:"smooth"});
+    el("nome").focus();
+  });
+
+  /* ---------- início ---------- */
+  Promise.resolve(deposito.ler()).then(function(salvo){
+    if(salvo) config = Object.assign({}, PADRAO, salvo);
+    pintarFixos();
+  });
+})();
+</script>
+</body>
+</html>
