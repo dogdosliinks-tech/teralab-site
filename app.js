@@ -3,6 +3,12 @@ const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const money = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 const WA = "https://wa.me/5531993535517";
 
+function priceLabel(p) {
+  if (!p || p.price === null) return "Sob consulta";
+  const value = money(p.price);
+  return p.priceFrom ? "A partir de " + value : value;
+}
+
 let products = [];
 let cart = [];
 let category = "Todos";
@@ -69,7 +75,7 @@ function updateCart() {
   items.forEach((c) => {
     const row = el("div", undefined, "cart-row");
     const desc = el("div");
-    desc.append(el("h3", c.product.name), el("p", c.product.price === null ? "Sob consulta" : money(c.product.price)));
+    desc.append(el("h3", c.product.name), el("p", priceLabel(c.product)));
     const controls = el("div", undefined, "quantity");
     for (const [label, delta] of [["−", -1], ["+", 1]]) {
       const b = el("button", label);
@@ -105,7 +111,7 @@ function updateCart() {
     "?text=" +
     encodeURIComponent(
       "Olá, TeraLab! Gostaria de consultar este pedido:\n" +
-        items.map((c) => c.quantity + " × " + c.product.name + " — " + (c.product.price === null ? "sob consulta" : money(c.product.price))).join("\n") +
+        items.map((c) => c.quantity + " × " + c.product.name + " — " + priceLabel(c.product)).join("\n") +
         "\nSubtotal conhecido: " +
         money(total) +
         "\nPodem confirmar os valores, prazo e entrega?"
@@ -136,27 +142,44 @@ function renderProducts() {
   list.forEach((p) => {
     const card = el("article", undefined, "product-card");
     if (p.image) {
+      const media = el("div", undefined, "product-media");
       const img = el("img");
       img.src = p.image;
-      img.alt = p.name;
+      img.alt = p.illustrative ? p.name + " (imagem ilustrativa)" : p.name;
       img.loading = "lazy";
-      card.append(img);
+      img.decoding = "async";
+      media.append(img);
+      if (p.illustrative) media.append(el("span", "Imagem ilustrativa", "product-badge"));
+      card.append(media);
     }
     const body = el("div", undefined, "product-body");
-    body.append(el("small", p.category.toUpperCase()), el("h3", p.name), el("p", p.description), el("strong", p.price === null ? "Sob consulta" : money(p.price)));
-    const b = el("button", "Adicionar à sacola +", "button orange");
-    b.type = "button";
-    b.addEventListener("click", () => {
-      const exists = cart.find((c) => c.id === p.id);
-      if (exists) exists.quantity = Math.min(999, exists.quantity + 1);
-      else cart.push({ id: p.id, quantity: 1 });
-      persist();
-      const t = $("#toast");
-      t.textContent = "Peça adicionada à sacola";
-      t.style.display = "block";
-      setTimeout(() => (t.style.display = "none"), 2200);
-    });
-    body.append(b);
+    body.append(el("small", p.category.toUpperCase()), el("h3", p.name), el("p", p.description), el("strong", priceLabel(p)));
+    if (p.price === null) {
+      const a = el("a", "Consultar no WhatsApp ↗", "button orange");
+      a.href =
+        WA +
+        "?text=" +
+        encodeURIComponent(
+          "Olá, TeraLab! Gostaria de um orçamento de " + p.name + ".\nPodem confirmar o valor, o prazo e a entrega?"
+        );
+      a.target = "_blank";
+      a.rel = "noopener";
+      body.append(a);
+    } else {
+      const b = el("button", "Adicionar à sacola +", "button orange");
+      b.type = "button";
+      b.addEventListener("click", () => {
+        const exists = cart.find((c) => c.id === p.id);
+        if (exists) exists.quantity = Math.min(999, exists.quantity + 1);
+        else cart.push({ id: p.id, quantity: 1 });
+        persist();
+        const t = $("#toast");
+        t.textContent = "Peça adicionada à sacola";
+        t.style.display = "block";
+        setTimeout(() => (t.style.display = "none"), 2200);
+      });
+      body.append(b);
+    }
     card.append(body);
     grid.append(card);
   });

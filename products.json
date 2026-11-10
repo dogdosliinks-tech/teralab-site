@@ -1,1 +1,175 @@
-[]
+[
+  {
+    "id": "presepio-anjo",
+    "name": "Presépio com Anjo",
+    "category": "Natal",
+    "description": "Presépio de Natal com anjo, Maria, José e o Menino Jesus, com cerca de 15 cm. Peça decorativa para mesa, rack ou para presentear.",
+    "price": 29.9,
+    "image": "img/catalogo/presepio-anjo.webp"
+  },
+  {
+    "id": "presepio-dourado-estrela",
+    "name": "Presépio Dourado com Estrela",
+    "category": "Natal",
+    "description": "Presépio dourado com a Sagrada Família sob um arco e a Estrela de Belém. Peça maior, para mesa, rack ou para presentear.",
+    "price": 54.9,
+    "image": "img/catalogo/presepio-dourado-estrela.webp"
+  },
+  {
+    "id": "presepio-arco-dourado",
+    "name": "Presépio Arco Dourado",
+    "category": "Natal",
+    "description": "Presépio dourado com arco, Sagrada Família, reis magos e animais. Peça completa para a decoração de Natal.",
+    "price": 54.9,
+    "image": "img/catalogo/presepio-arco-dourado.webp"
+  },
+  {
+    "id": "presepio-arco-rose",
+    "name": "Presépio Arco Rose",
+    "category": "Natal",
+    "description": "Mesmo presépio com arco, Sagrada Família, reis e animais, no acabamento rose. Peça para a decoração de Natal.",
+    "price": 54.9,
+    "image": "img/catalogo/presepio-arco-rose.webp"
+  },
+  {
+    "id": "arvore-natal-3d",
+    "name": "Árvore de Natal 3D",
+    "category": "Natal",
+    "description": "Árvore de Natal impressa em 3D, com estrela no topo. Boa para mesa, rack ou para presentear.",
+    "price": 49.9,
+    "image": "img/catalogo/arvore-natal-3d.webp",
+    "illustrative": true
+  },
+  {
+    "id": "celula-animal",
+    "name": "Maquete Célula Animal",
+    "category": "Educação",
+    "description": "Maquete didática da célula animal em 3D, com organelas em relevo e cores. Ideal para escola, feira e estudo. R$ 100 cada ou R$ 180 o par (animal + vegetal).",
+    "price": 100,
+    "image": "img/catalogo/celula-animal.webp"
+  },
+  {
+    "id": "celula-vegetal",
+    "name": "Maquete Célula Vegetal",
+    "category": "Educação",
+    "description": "Maquete didática da célula vegetal em 3D, com parede celular e organelas em relevo e cores. Ideal para escola, feira e estudo. R$ 100 cada ou R$ 180 o par (animal + vegetal).",
+    "price": 100,
+    "image": "img/catalogo/celula-vegetal.webp"
+  },
+  {
+    "id": "estrela-articulada",
+    "name": "Estrela articulada",
+    "category": "Sensoriais",
+    "description": "Estrela articulada, que se mexe nas pontas. Várias cores (gold, platina, rose e preto). Também no kit com 3 à escolha, a partir de R$ 50.",
+    "price": 15,
+    "image": "img/catalogo/estrela-articulada.webp"
+  },
+  {
+    "id": "polvo-articulado",
+    "name": "Polvo articulado",
+    "category": "Sensoriais",
+    "description": "Polvo articulado, com tentáculos que se mexem. Várias cores (gold, platina, rose e preto). Também no kit com 3 à escolha, a partir de R$ 50.",
+    "price": 20,
+    "image": "img/catalogo/polvo-articulado.webp"
+  },
+  {
+    "id": "cubo-infinito",
+    "name": "Cubo infinito grande",
+    "category": "Sensoriais",
+    "description": "Cubo infinito grande, com 8 cubos que giram na mão. Várias cores (gold, platina, rose e preto). Também no kit com 3 à escolha, a partir de R$ 50.",
+    "price": 30,
+    "image": "img/catalogo/cubo-infinito.webp"
+  },
+  {
+    "id": "kit-sensoriais-3",
+    "name": "Kit com 3 brinquedos sensoriais à escolha",
+    "category": "Sensoriais",
+    "description": "Kit com 3 peças à escolha (estrela articulada, polvo articulado ou cubo infinito), nas cores gold, platina, rose ou preto.",
+    "price": 50,
+    "image": "img/catalogo/kit-sensoriais-3.webp",
+    "priceFrom": true,
+    "illustrative": true
+  },
+  {
+    "id": "dummy-13",
+    "name": "Boneco articulado Dummy 13",
+    "category": "Bonecos",
+    "description": "Boneco articulado Dummy 13, com poses para foto, stop-motion, desenho ou decoração. O comprador escolhe as cores. Não indicado para menores de 3 anos.",
+    "price": 45,
+    "image": "img/catalogo/dummy-13.webp"
+  },
+  {
+    "id": "porta-ampolas-pequeno",
+    "name": "Porta-ampolas / porta-peptídeos pequeno",
+    "category": "Utilidades",
+    "description": "Caixa compacta para frascos e ampolas, com trava. Deixa tudo em pé, separado e protegido. Acabamento preto nas fotos.",
+    "price": 25,
+    "image": "img/catalogo/porta-ampolas-pequeno.webp"
+  },
+  {
+    "id": "porta-ampolas-grande",
+    "name": "Porta-ampolas / porta-peptídeos grande",
+    "category": "Utilidades",
+    "description": "Caixa grande para frascos, ampolas e compartimentos extras (algodão, seringas). Tampa com trava. Nas fotos aparece branca e laranja.",
+    "price": 35,
+    "image": "img/catalogo/porta-ampolas-grande.webp"
+  },
+  {
+    "id": "chaveiros-personalizados",
+    "name": "Chaveiros com nome ou logo",
+    "category": "Personalizados",
+    "description": "Chaveiros personalizados com nome ou logo. R$ 10 a unidade; R$ 8 cada a partir de 20 unidades; R$ 7 cada a partir de 50 unidades.",
+    "price": 10,
+    "image": "img/catalogo/chaveiros-personalizados.webp",
+    "illustrative": true
+  },
+  {
+    "id": "topo-de-bolo",
+    "name": "Topo de bolo personalizado",
+    "category": "Personalizados",
+    "description": "Topo de bolo personalizado com nome e idade, para aniversário e festas.",
+    "price": 30,
+    "image": "img/catalogo/topo-de-bolo.webp",
+    "priceFrom": true,
+    "illustrative": true
+  },
+  {
+    "id": "placa-menino-ou-menina",
+    "name": "Placa “Menino ou Menina?”",
+    "category": "Personalizados",
+    "description": "Placa para chá revelação, com a pergunta “Menino ou Menina?” e pezinhos.",
+    "price": 35,
+    "image": "img/catalogo/placa-menino-ou-menina.webp",
+    "priceFrom": true,
+    "illustrative": true
+  },
+  {
+    "id": "placa-personalizada",
+    "name": "Placa personalizada",
+    "category": "Personalizados",
+    "description": "Placa personalizada para casa, evento ou homenagem (bem-vindos, obrigado, nomes).",
+    "price": 35,
+    "image": "img/catalogo/placa-personalizada.webp",
+    "priceFrom": true,
+    "illustrative": true
+  },
+  {
+    "id": "letreiro-com-nome",
+    "name": "Letreiro com nome",
+    "category": "Personalizados",
+    "description": "Letreiro com nome para mesa de festa, quarto ou decoração, com chaveiros combinando se quiser.",
+    "price": 55,
+    "image": "img/catalogo/letreiro-com-nome.webp",
+    "priceFrom": true,
+    "illustrative": true
+  },
+  {
+    "id": "medalhas-trofeus",
+    "name": "Medalhas e troféus personalizados",
+    "category": "Personalizados",
+    "description": "Medalhas e troféus personalizados para eventos, escolas e competições. Orçamento sob consulta.",
+    "price": null,
+    "image": "img/catalogo/medalhas-trofeus.webp",
+    "illustrative": true
+  }
+]

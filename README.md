@@ -11,6 +11,7 @@ A TeraLab atua em duas frentes, com o mesmo peso:
 
 - Site: https://dogdosliinks-tech.github.io/teralab-site/
 - WhatsApp: https://wa.me/5531993535517
+- Instagram: https://www.instagram.com/brenoteralab/
 
 ## Como visualizar localmente
 
@@ -26,31 +27,34 @@ O GitHub Pages publica a pasta raiz da branch `main`.
 
 ## Catálogo de impressão 3D
 
-O arquivo `products.json` começa vazio. Enquanto não houver produtos, o catálogo e a sacola ficam ocultos.
+O catálogo fica em `products.json`. As fotos otimizadas estão em `img/catalogo/`. Categorias: Natal, Educação, Sensoriais, Bonecos, Utilidades e Personalizados.
 
-Para exibir o catálogo, inclua um array de produtos, por exemplo:
+Cada produto segue este formato:
 
 ```json
 [
   {
-    "id": "trofeu-estrela",
-    "name": "Troféu Estrela",
-    "category": "Troféus e medalhas",
-    "description": "Troféu personalizado para premiações.",
-    "price": null,
-    "image": "fotos/trofeu-estrela.jpg"
+    "id": "presepio-anjo",
+    "name": "Presépio com Anjo",
+    "category": "Natal",
+    "description": "Presépio de Natal com anjo, Maria, José e o Menino Jesus.",
+    "price": 29.9,
+    "image": "img/catalogo/presepio-anjo.webp",
+    "priceFrom": false,
+    "illustrative": false
   }
 ]
 ```
 
 - `id`: texto único
 - `name`, `category`, `description`: textos
-- `category`: `Troféus e medalhas`, `Peças e utilidades` ou `Presentes`
-- `price`: número em reais, ou `null` para “sob consulta”
+- `price`: número em reais, ou `null` para “Sob consulta”
+- `priceFrom` (opcional): se verdadeiro, o preço aparece como “A partir de R$ …”
+- `illustrative` (opcional): se verdadeiro, a foto exibe o selo “Imagem ilustrativa”
 - `image` (opcional): caminho relativo da foto
 
-O pedido da sacola e o formulário de encomenda abrem o WhatsApp com a mensagem pronta para revisão. Nada é enviado sozinho.
+Peças com valor sob consulta abrem o WhatsApp com a mensagem pronta, em vez de irem para a sacola. O pedido da sacola e o formulário de encomenda também abrem o WhatsApp para revisão. Nada é enviado sozinho.
 
 ## Contato
 
-O site usa apenas o WhatsApp informado acima. Não há e-mail ou redes sociais cadastrados nesta versão.
+O atendimento é pelo WhatsApp informado acima. O Instagram @brenoteralab aparece no rodapé.
