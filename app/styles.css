@@ -81,3 +81,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 }
 
 .calc-frame{display:block;width:100%;height:calc(100vh - 190px);min-height:480px;border:0;border-radius:12px;background:#E7E4DD}
+.share-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin:4px 0 18px}
+.share-box h3{margin:0 0 4px}
+.share-box p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.share-row{display:flex;flex-wrap:wrap;gap:8px}
+.share-row .btn{flex:1;min-width:110px;text-align:center;text-decoration:none}

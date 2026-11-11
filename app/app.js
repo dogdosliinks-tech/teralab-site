@@ -199,9 +199,19 @@ async function renderPainel(root) {
       <div class="stat"><span>Lucro</span><strong>${money(lucro)}</strong></div>
       <div class="stat wide"><span>A receber</span><strong>${money(receber)}</strong></div>
     </div>
+    <div class="share-box">
+      <h3>Compartilhar catálogo</h3>
+      <p>Mande o catálogo do site para os clientes.</p>
+      <div class="share-row">
+        <a class="btn primary" id="sh-wa" target="_blank" rel="noopener">WhatsApp</a>
+        <button class="btn" type="button" id="sh-copy">Copiar link</button>
+        <button class="btn" type="button" id="sh-more" hidden>Outros apps</button>
+      </div>
+    </div>
     <h3 style="margin:8px 0 12px">Mais vendidos no mês</h3>
     <div class="list" id="top-list"></div>`;
   $("#flt-mes").onchange = (e) => { month = e.target.value || month; render(); };
+  setupShareCatalog();
   const list = $("#top-list");
   if (!topList.length) list.innerHTML = `<p class="empty">Ainda não há vendas pagas neste mês.</p>`;
   else topList.forEach(([name, val]) => {
@@ -671,3 +681,18 @@ if ("serviceWorker" in navigator) {
 
 setAuthMode(false);
 refreshSessionUI();
+
+
+function setupShareCatalog() {
+  const url = new URL("../#catalogo", location.href).href;
+  const texto = "Confira o catálogo de peças 3D da TeraLab:";
+  $("#sh-wa").href = "https://wa.me/?text=" + encodeURIComponent(texto + " " + url);
+  $("#sh-copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(url); toast("Link copiado! Cole no Instagram ou onde quiser."); }
+    catch (e) { prompt("Copie o link:", url); }
+  };
+  if (navigator.share) {
+    $("#sh-more").hidden = false;
+    $("#sh-more").onclick = () => navigator.share({ title: "Catálogo TeraLab", text: texto, url }).catch(() => {});
+  }
+}
