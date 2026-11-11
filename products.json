@@ -193,8 +193,8 @@
     "category": "Personalizados",
     "description": "Escultura feita a partir da foto do seu pet, com base e placa para nome. Uma homenagem para guardar para sempre.",
     "price": null,
-    "image": "img/catalogo/escultura-memorial-pet.webp",
-    "illustrative": true
+    "image": "img/catalogo/memorial-pet-real.webp",
+    "illustrative": false
   },
   {
     "id": "esculturas-decorativas",
@@ -202,7 +202,7 @@
     "category": "Personalizados",
     "description": "Esculturas sob medida para decorar ou presentear: pets, pessoas, personagens e o que você imaginar, feitas a partir de foto ou ideia.",
     "price": null,
-    "image": "img/catalogo/esculturas-decorativas.webp",
+    "image": "img/catalogo/esculturas-decorativas-v2.webp",
     "illustrative": true
   }
 ]
