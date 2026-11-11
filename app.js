@@ -4,7 +4,7 @@ const money = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currenc
 const WA = "https://wa.me/5531993535517";
 
 function priceLabel(p) {
-  if (!p || p.price === null) return "Sob consulta";
+  if (!p || p.price === null) return "Preço a combinar";
   const value = money(p.price);
   return p.priceFrom ? "A partir de " + value : value;
 }

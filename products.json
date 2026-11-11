@@ -186,5 +186,23 @@
     "price": null,
     "image": "img/catalogo/medalhas-trofeus.webp",
     "illustrative": true
+  },
+  {
+    "id": "escultura-memorial-pet",
+    "name": "Escultura memorial do seu pet",
+    "category": "Personalizados",
+    "description": "Escultura feita a partir da foto do seu pet, com base e placa para nome. Uma homenagem para guardar para sempre.",
+    "price": null,
+    "image": "img/catalogo/escultura-memorial-pet.webp",
+    "illustrative": true
+  },
+  {
+    "id": "esculturas-decorativas",
+    "name": "Esculturas personalizadas e decorativas",
+    "category": "Personalizados",
+    "description": "Esculturas sob medida para decorar ou presentear: pets, pessoas, personagens e o que você imaginar, feitas a partir de foto ou ideia.",
+    "price": null,
+    "image": "img/catalogo/esculturas-decorativas.webp",
+    "illustrative": true
   }
 ]
