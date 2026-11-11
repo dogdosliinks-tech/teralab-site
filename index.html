@@ -213,7 +213,15 @@
           <div class="eyebrow">03 / Catálogo</div>
           <h2>Peças com propósito.<br><span>E a sua personalidade.</span></h2>
         </div>
-        <p>Encontre uma ideia para começar.<br>Personalize para fazer do seu jeito.</p>
+        <div>
+          <p>Encontre uma ideia para começar.<br>Personalize para fazer do seu jeito.</p>
+          <div class="share-catalog">
+            <button type="button" class="button orange" id="share-catalog">Compartilhar catálogo <span>↗</span></button>
+            <a class="share-opt" id="share-wa" target="_blank" rel="noopener">WhatsApp</a>
+            <button type="button" class="share-opt" id="share-copy">Copiar link (Instagram)</button>
+            <span class="share-msg" id="share-msg" aria-live="polite"></span>
+          </div>
+        </div>
       </div>
       <div class="catalog-toolbar">
         <div class="filters" role="group" aria-label="Categorias">
@@ -359,5 +367,24 @@
     <button class="button outline" type="button" id="continue-shopping">Continuar explorando</button>
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+  var url = location.origin + location.pathname.replace(/index\.html$/,"") + "#catalogo";
+  var texto = "Confira o catálogo de peças 3D da TeraLab:";
+  var wa = document.getElementById("share-wa");
+  wa.href = "https://wa.me/?text=" + encodeURIComponent(texto + " " + url);
+  var msg = document.getElementById("share-msg");
+  function copiar(){
+    var ok = function(){ msg.textContent = "Link copiado! Cole no Instagram ou onde quiser."; setTimeout(function(){msg.textContent="";},3000); };
+    if(navigator.clipboard){ navigator.clipboard.writeText(url).then(ok, function(){ prompt("Copie o link:", url); }); }
+    else { prompt("Copie o link:", url); }
+  }
+  document.getElementById("share-copy").onclick = copiar;
+  document.getElementById("share-catalog").onclick = function(){
+    if(navigator.share){ navigator.share({title:"Catálogo TeraLab", text:texto, url:url}).catch(function(){}); }
+    else { copiar(); }
+  };
+})();
+</script>
 </body>
 </html>
