@@ -180,30 +180,31 @@ async function renderPainel(root) {
     return;
   }
   const vendas = vendasRes.data || [];
-  const pagas = vendas.filter((v) => v.status === "pago");
-  const pend = vendas.filter((v) => v.status === "pendente");
-  const fat = pagas.reduce((n, v) => n + saleTotal(v), 0);
-  const custoPecas = pagas.reduce((n, v) => n + saleCost(v), 0);
+  const pagas = vendas.filter((v) => TeraPedidos.payment(v).received > 0);
+  const pagamentos = TeraPedidos.summary(vendas);
+  const fat = pagamentos.pago / 100;
+  const custoPecas = pagas.reduce((n, v) => { const p=TeraPedidos.payment(v);return n+(p.total>0?saleCost(v)*p.received/p.total:0); }, 0);
   const despesas = (custosRes.data || []).reduce((n, c) => n + Number(c.valor || 0), 0);
-  const receber = pend.reduce((n, v) => n + saleTotal(v), 0);
+  const receber = pagamentos.receber / 100;
   const lucro = fat - custoPecas - despesas;
   const custosIncompletos = pagas.filter(v => v.custo_unit == null || (typeof TeraPedidos === "object" && TeraPedidos.decode(v.obs)?.custo?.complete === false)).length;
   const top = {};
   pagas.forEach((v) => {
     const key = v.descricao || v.produto_id || "Venda avulsa";
-    top[key] = (top[key] || 0) + saleTotal(v);
+    top[key] = (top[key] || 0) + TeraPedidos.payment(v).received / 100;
   });
   const topList = Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 5);
   root.innerHTML = `
     <div class="section-head"><h2>Painel</h2>${monthPicker()}</div>
     <div class="grid-cards">
-      <div class="stat"><span>Faturamento</span><strong>${money(fat)}</strong></div>
-      <div class="stat"><span>Custo das peças</span><strong>${money(custoPecas)}</strong></div>
+      <div class="stat"><span>Recebido</span><strong>${money(fat)}</strong></div>
+      <div class="stat"><span>Custos proporcionais</span><strong>${money(custoPecas)}</strong></div>
       <div class="stat"><span>Despesas</span><strong>${money(despesas)}</strong></div>
       <div class="stat"><span>${custosIncompletos ? "Resultado parcial" : "Resultado estimado"}</span><strong>${money(lucro)}</strong></div>
       <div class="stat wide"><span>A receber</span><strong>${money(receber)}</strong></div>
     </div>
-    ${custosIncompletos ? '<p class="error">' + custosIncompletos + ' venda(s) paga(s) com custo incompleto. O resultado não representa o lucro final.</p>' : ''}
+    <p class="pedido-hint">Pedidos registrados no mês selecionado: os recebimentos são os valores acumulados desses pedidos, mesmo quando pagos em outras datas. Custos e resultado são estimados na proporção recebida, com as despesas do mês descontadas.</p>
+    ${custosIncompletos ? '<p class="error">' + custosIncompletos + ' pedido(s) com recebimentos e custo incompleto. O resultado não representa o lucro final.</p>' : ''}
     <div class="share-box">
       <h3>Compartilhar catálogo</h3>
       <p>Mande o catálogo do site para os clientes.</p>
@@ -213,12 +214,12 @@ async function renderPainel(root) {
         <button class="btn" type="button" id="sh-more" hidden>Outros apps</button>
       </div>
     </div>
-    <h3 style="margin:8px 0 12px">Mais vendidos no mês</h3>
+    <h3 style="margin:8px 0 12px">Pedidos com mais recebimentos</h3>
     <div class="list" id="top-list"></div>`;
   $("#flt-mes").onchange = (e) => { month = e.target.value || month; render(); };
   setupShareCatalog();
   const list = $("#top-list");
-  if (!topList.length) list.innerHTML = `<p class="empty">Ainda não há vendas pagas neste mês.</p>`;
+  if (!topList.length) list.innerHTML = `<p class="empty">Ainda não há recebimentos nos pedidos deste mês.</p>`;
   else topList.forEach(([name, val]) => {
     const card = document.createElement("article");
     card.className = "card";
@@ -514,24 +515,23 @@ async function renderVendas(root) {
     const card = document.createElement("article");
     card.className = "card";
     const pay = (PAY.find((x) => x[0] === v.forma_pagamento) || [v.forma_pagamento, v.forma_pagamento || ""])[1];
+    const pagamento=TeraPedidos.payment(v);
     card.innerHTML = `
       <div class="prod-row" style="grid-template-columns:1fr auto">
         <div>
           <h3>${esc(v.descricao || "Venda")}</h3>
           <div class="meta">${esc(v.data)} · ${esc(v.cliente || "sem cliente")} · ${v.quantidade} × ${money(v.valor_unit)}</div>
-          <div class="meta">${money(saleTotal(v))} · ${esc(pay)} · ${v.status === "pago" ? '<span class="badge ok">Pago</span>' : '<span class="badge warn">Pendente</span>'}</div>
+          <div class="meta">${money(saleTotal(v))} · ${esc(pay)} · ${pagamento.due===0 ? '<span class="badge ok">Pago</span>' : pagamento.partial ? '<span class="badge warn">Parcial</span>' : '<span class="badge warn">Pendente</span>'}</div>
+          <div class="meta">Recebido ${money(pagamento.received/100)} · Falta pagar ${money(pagamento.due/100)}</div>
         </div>
       </div>
       <div class="row">
-        <button class="btn" type="button" data-act="toggle">${v.status === "pago" ? "Marcar pendente" : "Marcar pago"}</button>
+        <button class="btn" type="button" data-act="paid">Pago</button>
+        <button class="btn" type="button" data-act="unpaid">Não pago</button>
         <button class="btn danger" type="button" data-act="del">Excluir</button>
       </div>`;
-    card.querySelector('[data-act="toggle"]').onclick = async () => {
-      const next = v.status === "pago" ? "pendente" : "pago";
-      const { error: e } = await sb.from("vendas").update({ status: next }).eq("id", v.id);
-      if (e) return toast(e.message);
-      render();
-    };
+    card.querySelector('[data-act="paid"]').onclick = () => pedidoPagamento(root,v,'recebido',()=>render());
+    card.querySelector('[data-act="unpaid"]').onclick = () => pedidoPagamento(root,v,'aberto',()=>render());
     card.querySelector('[data-act="del"]').onclick = async () => {
       if (!confirm("Excluir esta venda?")) return;
       const { error: e } = await sb.from("vendas").delete().eq("id", v.id);

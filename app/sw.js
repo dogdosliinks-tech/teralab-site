@@ -1,10 +1,11 @@
-const CACHE = "teralab-gestao-v4-pedidos";
+const CACHE = "teralab-gestao-v5-pagamentos-impressao";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./pedidos-core.js",
+  "./pedidos-print.js",
   "./pedidos.js",
   "./config.js",
   "./manifest.json",

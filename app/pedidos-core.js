@@ -27,16 +27,19 @@ function validate(x){
  const q=number(x.quantidade,'quantidade',100000);if(q<1||!Number.isInteger(q))throw Error('Quantidade deve ser inteira e maior que zero.');
  const total=cents(number(x.total,'valor total',1e7));
  if(!/^\d{4}-\d{2}-\d{2}$/.test(x.data)||isNaN(Date.parse(x.data+'T12:00:00Z'))||new Date(x.data+'T12:00:00Z').toISOString().slice(0,10)!==x.data)throw Error('Informe uma data válida para o registro.');
- if(!['pago','pendente'].includes(x.status))throw Error('Confirme se o pedido está pago ou não pago.');
+ let status=x.status,received=null;
+ if(x.recebido!==undefined){received=cents(number(x.recebido,'valor já recebido',1e7));if(received>total)throw Error('O valor recebido não pode ultrapassar o total do pedido.');status=received===total?'pago':'pendente';}
+ if(!['pago','pendente'].includes(status))throw Error('Confirme se o pedido está pago ou não pago.');
  for(const k of ['pronto','entregue'])if(![true,false,null].includes(x[k]))throw Error('Status inválido.');
  if(!['3d','software','outro'].includes(x.tipo))throw Error('Escolha o tipo de pedido.');
  const obs=String(x.obs||'').trim();if(obs.length>2500)throw Error('Observação muito longa.');
- return {...x,cliente,descricao,quantidade:q,totalCents:total,obs};
+ return {...x,cliente,descricao,quantidade:q,totalCents:total,status,received,obs};
 }
 function payload(input,params,vendedor){
  const x=validate(input),cost=x.tipo==='3d'?costing(x,params):null;
  const unit=Math.ceil(x.totalCents/x.quantidade);
  const metadata={version:1,pronto:x.pronto,entregue:x.entregue,tipo:x.tipo,notas:x.obs,custo:cost,origem:x.origem||'manual'};
+ if(x.received!==null)metadata.pagamento={recebidoCentavos:x.received};
  return {data:x.data,cliente:x.cliente,descricao:x.descricao,produto_id:null,quantidade:x.quantidade,valor_unit:unit/100,desconto:(unit*x.quantidade-x.totalCents)/100,custo_unit:cost?.total==null?null:cost.total/100/x.quantidade,status:x.status,forma_pagamento:'outro',vendedor,obs:encode(metadata)};
 }
 function preserveSale(payload,row){
@@ -44,16 +47,43 @@ function preserveSale(payload,row){
  const updated={...payload,produto_id:row.produto_id,forma_pagamento:row.forma_pagamento};
  delete updated.vendedor;
  if(!decode(row.obs)?.custo&&updated.custo_unit==null)updated.custo_unit=row.custo_unit;
+ const previous=decode(row.obs),next=decode(updated.obs);
+ if(previous?.pagamento&&!next.pagamento){
+  const paid=payment(row);
+  if(paid.received>orderCents(updated))throw Error('O total não pode ser menor que o valor já recebido.');
+  next.pagamento=previous.pagamento;updated.obs=encode(next);updated.status=paid.received===orderCents(updated)?'pago':'pendente';
+ }
  return updated;
 }
+function orderCents(row){return cents(Number(row.quantidade)*Number(row.valor_unit)-Number(row.desconto||0));}
+function payment(row){
+ const total=orderCents(row),stored=decode(row.obs)?.pagamento?.recebidoCentavos;
+ const received=Number.isSafeInteger(stored)&&stored>=0&&stored<=total?stored:row.status==='pago'?total:0;
+ return {total,received,due:total-received,partial:received>0&&received<total};
+}
+function paymentPatch(row,mode,amount,actor,at=new Date().toISOString()){
+ if(!['recebido','aberto'].includes(mode))throw Error('Escolha o tipo de valor.');
+ const total=orderCents(row),value=cents(number(amount,'valor de pagamento',1e7));
+ if(value>total)throw Error('O valor não pode ultrapassar o total do pedido.');
+ const received=mode==='recebido'?value:total-value;
+ const meta=decode(row.obs)||{pronto:null,entregue:null,tipo:'3d',notas:row.obs||'',custo:null};
+ meta.pagamento={recebidoCentavos:received,atualizadoEm:at,atualizadoPor:actor};
+ return {status:received===total?'pago':'pendente',obs:encode(meta)};
+}
+function deliveryPatch(row,delivered){
+ if(typeof delivered!=='boolean')throw Error('Situação de entrega inválida.');
+ const meta=decode(row.obs)||{pronto:null,entregue:null,tipo:'3d',notas:row.obs||'',custo:null};
+ return {obs:encode({...meta,entregue:delivered})};
+}
 function summary(rows){
- return rows.reduce((s,r)=>{const m=decode(r.obs);const total=cents(Number(r.quantidade)*Number(r.valor_unit)-Number(r.desconto||0));s.total+=total;if(r.status==='pago')s.pago+=total;else if(r.status==='pendente')s.receber+=total;if(m?.pronto!==true)s.produzir++;if(m?.entregue!==true)s.entregar++;return s;},{total:0,pago:0,receber:0,produzir:0,entregar:0});
+ return rows.reduce((s,r)=>{const m=decode(r.obs),p=payment(r);s.total+=p.total;s.pago+=p.received;s.receber+=p.due;if(m?.pronto!==true)s.produzir++;if(m?.entregue!==true)s.entregar++;return s;},{total:0,pago:0,receber:0,produzir:0,entregar:0});
 }
 function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
  const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  return rows.filter(r=>{const m=decode(r.obs);
- return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&(!pronto||(pronto==='sim'?m?.pronto===true:m?.pronto!==true))&&(!entregue||(entregue==='sim'?m?.entregue===true:m?.entregue!==true))&&(!pago||r.status===pago);});
+ const p=payment(r);
+ return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&(!pronto||(pronto==='sim'?m?.pronto===true:m?.pronto!==true))&&(!entregue||(entregue==='sim'?m?.entregue===true:m?.entregue!==true))&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents});
+root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,payment,paymentPatch,deliveryPatch});
 })(typeof globalThis==='object'?globalThis:this);
 

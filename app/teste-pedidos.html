@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Demonstração dos pedidos — dados fictícios</title><link rel="stylesheet" href="./styles.css"></head><body><header class="topbar"><strong>TeraLab · demonstração</strong><small>Dados fictícios. Não acessa o banco.</small></header><div id="toast" hidden></div><main id="content" class="content"></main><script src="./pedidos-core.js"></script><script src="./pedidos-print.js"></script><script>const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const todayISO=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+const saleTotal=v=>Number(v.quantidade)*Number(v.valor_unit)-Number(v.desconto||0);
+const session={user:{id:'demo'}},perfil={id:'demo',aprovado:true};let view='pedidos';
+function toast(s){$('#toast').textContent=s;$('#toast').hidden=false;setTimeout(()=>$('#toast').hidden=true,2000);}
+function errBox(el,e){el.hidden=false;el.textContent=e.message;}
+const records=[
+{id:crypto.randomUUID(),...TeraPedidos.payload({cliente:'Cliente de exemplo',descricao:'3 peças personalizadas',quantidade:3,total:120,data:todayISO(),tipo:'3d',pronto:true,entregue:false,status:'pendente',gramas:100,horas:5,embalagens:3,obs:'Somente demonstração local.'},TeraPedidos.defaults,'demo')},
+{id:crypto.randomUUID(),...TeraPedidos.payload({cliente:'Cliente pago',descricao:'Placa de exemplo',quantidade:1,total:45,data:todayISO(),tipo:'3d',pronto:false,entregue:false,status:'pago',gramas:null,horas:null,embalagens:null,obs:''},TeraPedidos.defaults,'demo')}
+];
+const sb={from(name){if(name!=='vendas')throw Error('Tabela incorreta');let filters=[],payload=null,mode='read',range=[0,999];
+const q={select(){return q;},order(){return q;},range(a,b){range=[a,b];return q;},eq(k,v){filters.push([k,v]);return q;},is(k,v){filters.push([k,v]);return q;},update(x){payload=x;mode='update';return q;},upsert(x){payload=x;mode='insert';return q;},then(resolve,reject){return Promise.resolve().then(()=>{
+let result=records.filter(r=>filters.every(([k,v])=>r[k]===v));
+if(mode==='update'){for(const r of result)Object.assign(r,payload);}
+if(mode==='insert'){if(records.some(r=>r.id===payload.id))result=[];else{records.push(payload);result=[payload];}}
+return {data:structuredClone(result.slice(range[0],range[1]+1)),error:null};
+}).then(resolve,reject);}};return q;}};
+</script><script src="./pedidos.js"></script><script>renderPedidos(document.querySelector("#content"));</script></body></html>

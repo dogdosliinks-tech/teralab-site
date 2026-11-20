@@ -96,3 +96,37 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .share-box p{margin:0 0 12px;color:var(--muted);font-size:14px}
 .share-row{display:flex;flex-wrap:wrap;gap:8px}
 .share-row .btn{flex:1;min-width:110px;text-align:center;text-decoration:none}
+.pedido-actions{display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--border);padding-top:12px}
+.pedido-actions .btn{flex:1 1 130px;font-size:14px}
+.pedido-actions .btn[aria-pressed="true"]{border-color:var(--orange);background:#32220f;color:#ffaf64}
+.pedido-money{font-weight:700;font-size:16px}
+.pedido-dialog{width:min(520px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:22px}
+.pedido-dialog::backdrop{background:#000b}
+.pedido-dialog h2{font-size:30px}
+.pedido-dialog .row .btn{flex:1;min-width:130px}
+.pedido-payment-preview{background:var(--panel2);padding:12px;border-radius:6px;font-weight:700}
+.pedido-print-dialog{width:min(980px,calc(100% - 24px))}
+.pedido-print-controls{display:grid;gap:12px;margin-bottom:20px}
+.pedido-print-sheet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:white;color:#111;padding:16px;font-family:Arial,sans-serif}
+.pedido-ticket{padding:16px;border:1px dashed #555;break-inside:avoid;page-break-inside:avoid;display:grid;align-content:start;gap:12px;overflow-wrap:anywhere;min-width:0;font-size:14px}
+.pedido-ticket header{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.pedido-ticket h2{font:700 24px Arial,sans-serif}
+.pedido-ticket-desc{white-space:pre-wrap;font-size:16px}
+.pedido-ticket-values{display:grid;gap:4px;border-block:1px solid #bbb;padding-block:10px}
+.pedido-ticket-values p{display:flex;justify-content:space-between;gap:12px}
+.pedido-ticket-checks{display:flex;flex-wrap:wrap;gap:8px 12px}
+.pedido-ticket-write{line-height:2;overflow-wrap:anywhere}
+@media(max-width:620px){.pedido-print-sheet{grid-template-columns:1fr}.pedido-dialog{padding:16px}}
+@media print{
+ @page{size:A4 portrait;margin:12mm}
+ body:has(#pedido-print-dialog[open]){background:#fff;color:#000;height:auto;overflow:visible}
+ body:has(#pedido-print-dialog[open])>:not(#pedido-print-dialog){display:none!important}
+ #pedido-print-dialog[open]{display:block!important;position:static;inset:auto;max-height:none;overflow:visible;width:100%;max-width:none;margin:0;padding:0;border:0;border-radius:0;background:white;color:#000}
+ #pedido-print-dialog::backdrop{display:none}
+ .pedido-print-controls{display:none!important}
+ .pedido-print-sheet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6mm;padding:0}
+ .pedido-ticket{padding:4mm;break-inside:avoid;page-break-inside:avoid;font-size:11pt;min-height:95mm}
+ .pedido-ticket h2{font-size:18pt}
+ .pedido-ticket-desc{font-size:12pt}
+ .pedido-ticket header{font-size:10pt}
+}
