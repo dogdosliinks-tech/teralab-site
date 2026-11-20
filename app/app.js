@@ -170,12 +170,14 @@ function saleCost(v) {
 
 async function renderPainel(root) {
   root.innerHTML = `<div class="section-head"><h2>Painel</h2>${monthPicker()}</div><p class="empty">Carregando números do mês…</p>`;
+  const loading = root.querySelector('.empty');
   $("#flt-mes").onchange = (e) => { month = e.target.value || month; render(); };
   const { start, end } = monthBounds(month);
   const [vendasRes, custosRes] = await Promise.all([
     sb.from("vendas").select("id,data,produto_id,descricao,quantidade,valor_unit,custo_unit,desconto,status,obs").gte("data", start).lt("data", end),
     sb.from("custos").select("id,valor").gte("data", start).lt("data", end),
   ]);
+  if (!root.contains(loading)) return;
   if (vendasRes.error || custosRes.error) {
     root.querySelector(".empty").textContent = "Não deu para carregar o painel.";
     return;

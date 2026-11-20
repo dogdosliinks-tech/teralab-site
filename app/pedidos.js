@@ -13,9 +13,61 @@ async function renderPedidos(root){
  $('#pedido-copy').onclick=()=>{if(!pedidoState.rows.length)return toast('Aguarde o carregamento.');if(!confirm('Esta cópia contém clientes e valores. Baixar neste dispositivo?'))return;const b=new Blob([JSON.stringify({formato:'teralab-vendas-backup-v1',data:todayISO(),vendas:pedidoState.rows},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='teralab-pedidos-'+todayISO()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
  try{const all=[];let done=false;for(let page=0;page<20;page++){const {data,error}=await sb.from('vendas').select('*').order('data',{ascending:false}).order('id',{ascending:false}).range(page*1000,page*1000+999);if(error)throw error;all.push(...data);if(data.length<1000){done=true;break;}}if(!done)throw Error('Mais de 20 mil registros. A consulta precisa de paginação adicional.');if(epoch!==pedidoEpoch||view!=='pedidos')return;pedidoState.rows=all;}catch(e){if(epoch===pedidoEpoch)root.querySelector('.empty').textContent='Não foi possível carregar: '+e.message;return;}
  root.querySelector('.empty').remove();const area=document.createElement('div');root.append(area);
- area.innerHTML='<p class="pedido-hint">Todos os meses. O pagamento é compartilhado com a tela Vendas.</p><div class="grid-cards pedido-summary"></div><div class="pedido-filters"><label>Cliente ou pedido<input type="search" name="busca" maxlength="100"></label><label>Produção<select name="pronto"><option value="">Todos</option><option value="nao">A produzir</option><option value="sim">Prontos</option><option value="conferir">A conferir</option></select></label><label>Entrega<select name="entregue"><option value="">Todos</option><option value="nao">Entregar / conferir</option><option value="sim">Entregues</option></select></label><label>Pagamento<select name="pago"><option value="">Todos</option><option value="pago">Pagos</option><option value="pendente">Com saldo a pagar</option><option value="parcial">Pagos parcialmente</option></select></label></div><p class="pedido-count" role="status"></p><div class="list pedido-list"></div>';
- for(const el of $$('input,select',area)){el.value=pedidoState.filters[el.name]||'';el.oninput=()=>{pedidoState.filters[el.name]=el.value;draw();};}
- function draw(){const rows=TeraPedidos.filter(pedidoState.rows,pedidoState.filters),sum=TeraPedidos.summary(rows);$('#pedido-print').disabled=!rows.length;$('#pedido-print').onclick=()=>pedidoPrint(rows);$('.pedido-summary',area).innerHTML=`<div class="stat"><span>A receber</span><strong>${money(sum.receber/100)}</strong></div><div class="stat"><span>Pago</span><strong>${money(sum.pago/100)}</strong></div><div class="stat"><span>A produzir</span><strong>${sum.produzir}</strong></div><div class="stat"><span>Prontos</span><strong>${sum.prontos}</strong></div><div class="stat"><span>Produção a conferir</span><strong>${sum.conferirProducao}</strong></div><div class="stat"><span>Entregar / conferir</span><strong>${sum.entregar}</strong></div>`;$('.pedido-count',area).textContent=rows.length+' pedido(s). Totais conforme os filtros.';const list=$('.pedido-list',area);list.replaceChildren();if(!rows.length)list.innerHTML='<p class="empty">Nenhum pedido nestes filtros.</p>';for(const r of rows)list.append(pedidoCard(root,r));}
+ area.innerHTML='<p class="pedido-hint">Todos os meses. O pagamento é compartilhado com a tela Vendas.</p><div class="grid-cards pedido-summary"></div><div class="pedido-filters"><label>Cliente ou pedido<input type="search" name="busca" maxlength="100"></label><label>Produção<select name="pronto"><option value="">Todos</option><option value="nao">A produzir</option><option value="sim">Pronto</option><option value="conferir">A conferir</option></select></label><label>Entrega<select name="entregue"><option value="">Todos</option><option value="sim">Entregue</option><option value="nao">Não entregue</option><option value="conferir">A conferir</option></select></label><label>Pagamento<select name="pago"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Não pago (com saldo)</option><option value="parcial">Pago parcialmente</option></select></label><button class="btn" type="button" id="pedido-limpar-filtros" hidden>Limpar filtros</button></div><p class="pedido-count" role="status"></p><div class="list pedido-list"></div>';
+ const filterFields=$$('input,select',area);
+ const clearFilters=$('#pedido-limpar-filtros',area);
+ for(const el of filterFields){el.value=pedidoState.filters[el.name]||'';el.oninput=()=>{pedidoState.filters[el.name]=el.value;draw();};}
+ clearFilters.onclick=()=>{
+  pedidoState.filters={};
+  filterFields.forEach(field=>{field.value='';});
+  draw();
+  filterFields[0].focus({preventScroll:true});
+ };
+ const list=$('.pedido-list',area);
+ const visibleCards=new Map();
+
+ function applyChange(row,patch,action){
+  if(epoch!==pedidoEpoch||view!=='pedidos'||!area.isConnected)return;
+  const index=pedidoState.rows.findIndex(entry=>entry.id===row.id);
+  if(index<0)return;
+  pedidoState.rows[index]={...pedidoState.rows[index],...patch};
+  draw(row.id,action);
+ }
+
+ function makeCard(row){
+  const card=pedidoCard(root,row,(patch,action)=>applyChange(row,patch,action));
+  visibleCards.set(row.id,card);
+  return card;
+ }
+
+ function draw(changedId,action){
+  const rows=TeraPedidos.filter(pedidoState.rows,pedidoState.filters);
+  clearFilters.hidden=!filterFields.some(field=>field.value);
+  const sum=TeraPedidos.summary(rows);
+  const print=$('#pedido-print',root);
+  print.disabled=!rows.length;
+  print.onclick=()=>pedidoPrint(rows);
+  $('.pedido-summary',area).innerHTML=`<div class="stat"><span>A receber</span><strong>${money(sum.receber/100)}</strong></div><div class="stat"><span>Pago</span><strong>${money(sum.pago/100)}</strong></div><div class="stat"><span>A produzir</span><strong>${sum.produzir}</strong></div><div class="stat"><span>Prontos</span><strong>${sum.prontos}</strong></div><div class="stat"><span>Produção a conferir</span><strong>${sum.conferirProducao}</strong></div><div class="stat"><span>Entregar / conferir</span><strong>${sum.entregar}</strong></div>`;
+  $('.pedido-count',area).textContent=rows.length+' pedido(s). Totais conforme os filtros.';
+
+  const previous=visibleCards.get(changedId);
+  if(previous){
+   const updated=rows.find(row=>row.id===changedId);
+   if(updated){
+    const keepFocus=document.activeElement===document.body||previous.contains(document.activeElement);
+    const card=makeCard(updated);
+    previous.replaceWith(card);
+    if(keepFocus&&action)card.querySelector(`[data-status-action="${action}"]`)?.focus({preventScroll:true});
+   }else{
+    previous.remove();
+    visibleCards.delete(changedId);
+   }
+  }else{
+   visibleCards.clear();
+   list.replaceChildren(...rows.map(makeCard));
+  }
+  if(!rows.length)list.innerHTML='<p class="empty">Nenhum pedido nestes filtros.</p>';
+ }
  draw();
 }
 function renderPedidoDrafts(root){++pedidoEpoch;root.innerHTML='<div class="section-head"><h2>Conferir caderneta</h2><button class="btn" id="pedido-back">Voltar</button></div><p class="pedido-hint">Confira cada anotação antes de gravar. Datas, nomes, valores e situações desconhecidos permanecem a conferir.</p><div class="list" id="pedido-drafts"></div>';$('#pedido-back').onclick=()=>renderPedidos(root);for(const d of pedidoState.drafts){const c=document.createElement('article');c.className='card';c.innerHTML=`<h3>${esc(d.cliente||'Nome a conferir')}</h3><p>${d.total==null?'Valor a conferir':money(d.total)}</p><p class="pedido-hint">${esc(d.obs||'Descrição e situações a conferir.')}</p><button class="btn" ${d.importado?'disabled':''}>${d.importado?'Salvo':'Conferir e importar'}</button>`;c.querySelector('button').onclick=()=>renderPedidoForm(root,null,d);$('#pedido-drafts').append(c);}}
@@ -65,7 +117,7 @@ async function pedidoUpdate(row,patch){
  if(result.error)throw result.error;
  if(result.data?.length!==1)throw Error('O pedido mudou em outro aparelho. Reabra a caderneta antes de salvar.');
 }
-function pedidoEnhanceCard(root,card,row){
+function pedidoEnhanceCard(root,card,row,onChange){
  const p=TeraPedidos.payment(row),m=pedidoMeta(row);
  card.querySelector('.pedido-status div:last-child dd').textContent=p.partial?'Parcial':p.due===0?'Sim':'Não';
  const values=document.createElement('p');values.className='pedido-money';
@@ -73,27 +125,29 @@ function pedidoEnhanceCard(root,card,row){
  card.querySelector('.pedido-status').after(values);
  const actions=document.createElement('div');actions.className='pedido-actions';actions.setAttribute('aria-label','Ações de '+row.cliente);
  const button=(label,selected,click)=>{const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=label;if(selected!==null)b.setAttribute('aria-pressed',String(selected));b.onclick=click;actions.append(b);return b;};
- button('Pago',p.due===0,()=>pedidoPagamento(root,row,'recebido'));
- button('Não pago',p.due>0,()=>pedidoPagamento(root,row,'aberto'));
- const situationAction=(label,current,value,patch,feedback)=>{
+ const paidButton=button('Pago',p.due===0,()=>pedidoPagamento(root,row,'recebido',patch=>onChange(patch,'paid')));
+ paidButton.dataset.statusAction='paid';
+ const unpaidButton=button('Não pago',p.due>0,()=>pedidoPagamento(root,row,'aberto',patch=>onChange(patch,'unpaid')));
+ unpaidButton.dataset.statusAction='unpaid';
+ const situationAction=(action,label,current,value,makePatch,feedback)=>{
   const b=button(label,current===value,async()=>{
    if(current===value)return;
    const group=Array.from(actions.querySelectorAll('button'));
    group.forEach(control=>{control.disabled=true;});
    try{
-    await pedidoUpdate(row,patch(row,value));
+    const patch=makePatch(row,value);
+    await pedidoUpdate(row,patch);
+    onChange(patch,action);
     toast(feedback);
-    if(view==='pedidos')await renderPedidos(root);
    }catch(e){toast(e.message);}
    finally{group.forEach(control=>{control.disabled=false;});}
   });
-  return b;
+  b.dataset.statusAction=action;
  };
- const readyButton=situationAction('Pronto',m.pronto,true,TeraPedidos.productionPatch,'Produção atualizada');
- readyButton.dataset.production='ready';
- situationAction('A produzir',m.pronto,false,TeraPedidos.productionPatch,'Produção atualizada');
- situationAction('Entregue',m.entregue,true,TeraPedidos.deliveryPatch,'Entrega atualizada');
- situationAction('Não entregue',m.entregue,false,TeraPedidos.deliveryPatch,'Entrega atualizada');
+ situationAction('ready','Pronto',m.pronto,true,TeraPedidos.productionPatch,'Produção atualizada');
+ situationAction('to-make','A produzir',m.pronto,false,TeraPedidos.productionPatch,'Produção atualizada');
+ situationAction('delivered','Entregue',m.entregue,true,TeraPedidos.deliveryPatch,'Entrega atualizada');
+ situationAction('undelivered','Não entregue',m.entregue,false,TeraPedidos.deliveryPatch,'Entrega atualizada');
  button('Imprimir pedido',null,()=>pedidoPrint([row]));
  card.append(actions);
 }
@@ -109,7 +163,7 @@ function pedidoPagamento(root,row,mode,refresh=()=>renderPedidos(root)){
  const preview=()=>{try{const patch=TeraPedidos.paymentPatch(row,mode,field.value,perfil?.id),next=TeraPedidos.payment({...row,...patch});form.querySelector('[role=status]').textContent='Recebido '+money(next.received/100)+' · Falta pagar '+money(next.due/100);}catch(e){form.querySelector('[role=status]').textContent=e.message;}};
  field.oninput=preview;preview();
  form.onsubmit=async e=>{e.preventDefault();if(saving)return;saving=true;save.disabled=cancel.disabled=true;error.hidden=true;
-  try{await pedidoUpdate(row,TeraPedidos.paymentPatch(row,mode,field.value,perfil?.id));saving=false;close();toast('Pagamento atualizado');await refresh();}
+  try{const patch=TeraPedidos.paymentPatch(row,mode,field.value,perfil?.id);await pedidoUpdate(row,patch);saving=false;close();toast('Pagamento atualizado');await refresh(patch);}
   catch(e){saving=false;save.disabled=cancel.disabled=false;errBox(error,e);}
  };
  dialog.showModal();field.focus();field.select();
@@ -124,12 +178,12 @@ function pedidoPrint(rows){
  document.body.append(dialog);dialog.showModal();
 }
 
-function pedidoCard(root,row){
+function pedidoCard(root,row,onChange){
  const meta=pedidoMeta(row),card=document.createElement('article');
  card.className='card pedido-card pedido-compact';
  card.innerHTML='<div class="pedido-card-head"><h3>'+esc(row.cliente||'Cliente não informado')+'</h3><strong>'+money(saleTotal(row))+'</strong></div><p class="pedido-card-desc">'+esc(row.descricao||'Pedido')+'</p><div class="meta"><span>'+esc(row.quantidade)+' unidade(s)</span><span>'+esc(row.data)+'</span></div><dl class="pedido-status"><div><dt>Produção</dt><dd>'+TeraPedidos.productionLabel(meta.pronto)+'</dd></div><div><dt>Entregue</dt><dd>'+pedidoText(meta.entregue)+'</dd></div><div><dt>Pago</dt><dd></dd></div></dl><button class="btn pedido-details" type="button">Ver detalhes</button>';
  card.querySelector('.pedido-details').onclick=()=>pedidoDetails(root,row);
- pedidoEnhanceCard(root,card,row);
+ pedidoEnhanceCard(root,card,row,onChange);
  const print=card.querySelector('.pedido-actions button:last-child'),footer=document.createElement('div');footer.className='pedido-card-footer';
  footer.append(card.querySelector('.pedido-details'),print);card.append(footer);
  return card;

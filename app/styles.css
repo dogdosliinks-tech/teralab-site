@@ -68,6 +68,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;overflow-x:auto;gap:4px;padding:8px 8px calc(8px + var(--safe-bottom));background:rgba(9,13,18,.96);border-top:1px solid var(--border);z-index:20}
 .tabbar button{flex:1 0 65px}
 .pedido-cols,.pedido-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px}
+.pedido-filters>.btn{align-self:end}
 .pedido-hint,.pedido-note,.pedido-count{font-size:14px;color:var(--muted);margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .pedido-status{display:flex;gap:20px;flex-wrap:wrap;margin:4px 0}
 .pedido-status dt{color:var(--muted);font-size:14px}
@@ -145,7 +146,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .cliente-card p{color:var(--muted)}
 .clientes-list{margin-top:14px}
 .pedido-summary{grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr))}
-.pedido-actions .btn[data-production][aria-pressed="true"]{border-color:#27875b;background:#163427;color:var(--ok)}
+.pedido-actions .btn:is([data-status-action="paid"],[data-status-action="ready"],[data-status-action="delivered"])[aria-pressed="true"]{border-color:#27875b;background:#163427;color:var(--ok)}
 .pedido-detail-dialog{width:min(640px,calc(100% - 24px))}
 .pedido-detail-dialog .section-head h2{font-size:28px}
 @media(max-width:620px){.pedido-print-sheet{grid-template-columns:1fr}.pedido-dialog{padding:16px}}
