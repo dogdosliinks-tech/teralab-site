@@ -437,7 +437,7 @@ async function renderNovaVenda(root) {
       </label>
       <label>Descrição <input name="descricao" placeholder="Nome da peça ou serviço"></label>
       <label>Cliente <input name="cliente" placeholder="Opcional"></label>
-      <label>Quantidade <input name="quantidade" type="number" min="0.01" step="1" value="1" required></label>
+      <label>Quantidade <input name="quantidade" type="number" min="1" step="1" inputmode="numeric" value="1" required></label>
       <label>Valor unitário (R$) <input name="valor_unit" type="number" min="0" step="0.01" required></label>
       <label>Custo unitário (R$) <input name="custo_unit" type="number" min="0" step="0.01" placeholder="Cópia do custo da peça"></label>
       <label>Desconto (R$) <input name="desconto" type="number" min="0" step="0.01" value="0"></label>
