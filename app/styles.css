@@ -130,6 +130,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .pedido-compact .pedido-actions{display:grid;grid-template-columns:1fr 1fr;border:0;padding:0;gap:8px}
 .pedido-compact .pedido-actions .btn,.pedido-card-footer .btn{min-height:44px;padding:8px;font-size:14px}
 .pedido-card-footer{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pedido-summary{grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr))}
+.pedido-actions .btn[data-production][aria-pressed="true"]{border-color:#27875b;background:#163427;color:var(--ok)}
 .pedido-detail-dialog{width:min(640px,calc(100% - 24px))}
 .pedido-detail-dialog .section-head h2{font-size:28px}
 @media(max-width:620px){.pedido-print-sheet{grid-template-columns:1fr}.pedido-dialog{padding:16px}}

@@ -70,20 +70,42 @@ function paymentPatch(row,mode,amount,actor,at=new Date().toISOString()){
  meta.pagamento={recebidoCentavos:received,atualizadoEm:at,atualizadoPor:actor};
  return {status:received===total?'pago':'pendente',obs:encode(meta)};
 }
+function situationPatch(row,field,value){
+ const meta=decode(row.obs)||{pronto:null,entregue:null,tipo:'3d',notas:row.obs||'',custo:null};
+ return {obs:encode({...meta,[field]:value})};
+}
 function deliveryPatch(row,delivered){
  if(typeof delivered!=='boolean')throw Error('Situação de entrega inválida.');
- const meta=decode(row.obs)||{pronto:null,entregue:null,tipo:'3d',notas:row.obs||'',custo:null};
- return {obs:encode({...meta,entregue:delivered})};
+ return situationPatch(row,'entregue',delivered);
+}
+function productionPatch(row,ready){
+ if(typeof ready!=='boolean')throw Error('Situação de produção inválida.');
+ return situationPatch(row,'pronto',ready);
+}
+function productionLabel(ready){
+ if(ready===true)return 'Pronto';
+ if(ready===false)return 'A produzir';
+ return 'A conferir';
 }
 function summary(rows){
- return rows.reduce((s,r)=>{const m=decode(r.obs),p=payment(r);s.total+=p.total;s.pago+=p.received;s.receber+=p.due;if(m?.pronto!==true)s.produzir++;if(m?.entregue!==true)s.entregar++;return s;},{total:0,pago:0,receber:0,produzir:0,entregar:0});
+ return rows.reduce((sum,row)=>{
+  const meta=decode(row.obs),p=payment(row);
+  sum.total+=p.total;sum.pago+=p.received;sum.receber+=p.due;
+  if(meta?.pronto===true)sum.prontos++;
+  else if(meta?.pronto===false)sum.produzir++;
+  else sum.conferirProducao++;
+  if(meta?.entregue!==true)sum.entregar++;
+  return sum;
+ },{total:0,pago:0,receber:0,produzir:0,prontos:0,conferirProducao:0,entregar:0});
 }
 function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
  const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const productionFilters={sim:true,nao:false,conferir:null};
  return rows.filter(r=>{const m=decode(r.obs);
  const p=payment(r);
- return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&(!pronto||(pronto==='sim'?m?.pronto===true:m?.pronto!==true))&&(!entregue||(entregue==='sim'?m?.entregue===true:m?.entregue!==true))&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
+ const matchesProduction=!pronto||(m?.pronto??null)===productionFilters[pronto];
+ return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&matchesProduction&&(!entregue||(entregue==='sim'?m?.entregue===true:m?.entregue!==true))&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,payment,paymentPatch,deliveryPatch});
+root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel});
 })(typeof globalThis==='object'?globalThis:this);
 
