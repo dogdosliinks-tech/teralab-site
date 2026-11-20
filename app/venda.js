@@ -18,9 +18,15 @@ async function renderNovaVenda(root) {
       <fieldset class="card venda-cliente">
         <legend>Cliente</legend>
         <div class="row"><button class="btn" type="button" id="venda-cadastrar-cliente">Cadastrar cliente</button></div>
-        <label>Buscar cliente cadastrado <input type="search" id="venda-busca-cliente" maxlength="120"></label>
-        <label>Selecionar cliente <select name="cliente_id"><option value="">Cliente avulso</option></select></label>
-        <p class="pedido-hint" id="venda-clientes-status" role="status">Carregando clientes…</p>
+        <div class="venda-cliente-busca" id="venda-cliente-busca">
+          <label>Buscar cliente cadastrado <input type="search" id="venda-busca-cliente" maxlength="120" autocomplete="off" placeholder="Nome ou telefone" aria-controls="venda-clientes-resultados"></label>
+          <p class="pedido-hint" id="venda-clientes-status" role="status">Carregando clientes…</p>
+          <ul id="venda-clientes-resultados" class="venda-clientes-resultados" aria-label="Clientes encontrados" hidden></ul>
+        </div>
+        <div class="venda-cliente-escolhido" id="venda-cliente-escolhido" hidden>
+          <div><span class="pedido-hint">Cliente selecionado</span><strong id="venda-cliente-nome"></strong></div>
+          <button class="btn" type="button" id="venda-cliente-trocar">Trocar cliente</button>
+        </div>
         <label id="venda-cliente-avulso">Nome do cliente avulso (opcional) <input name="cliente" maxlength="120"></label>
       </fieldset>
       <div class="list" id="venda-itens"></div>
@@ -41,23 +47,45 @@ async function renderNovaVenda(root) {
   const errorBox = $('#venda-error', form);
   const list = $('#venda-itens', form);
   const search = $('#venda-busca-cliente', form);
-  const customerSelect = form.elements.namedItem('cliente_id');
   const clientStatus = $('#venda-clientes-status', form);
+  const clientResults = $('#venda-clientes-resultados', form);
+  const changeCustomer = $('#venda-cliente-trocar', form);
   const clients = new Map();
+  let customer = null;
+  let customersLoaded = false;
+  let customersFailed = false;
   let productList = produtos;
   const items = () => [...list.querySelectorAll('.venda-item')];
 
-  function refreshCustomers(selected = customerSelect.value) {
-    const term = search.value.trim().toLocaleLowerCase('pt-BR');
-    customerSelect.replaceChildren(new Option('Cliente avulso', ''));
-    for (const client of [...clients.values()].sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'))) {
-      const label = client.telefone ? `${client.nome} · ${client.telefone}` : client.nome;
-      if (client.id === selected || label.toLocaleLowerCase('pt-BR').includes(term)) {
-        customerSelect.add(new Option(label, client.id));
-      }
+  const customerLabel = (client) => client.telefone ? `${client.nome} · ${client.telefone}` : client.nome;
+
+  function refreshCustomers() {
+    const matches = buscarClientes(clients.values(), search.value);
+    clientResults.replaceChildren();
+    clientResults.hidden = matches.length === 0;
+    for (const client of matches.slice(0, 8)) {
+      const row = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = customerLabel(client);
+      button.onclick = () => selectCustomer(client);
+      row.append(button);
+      clientResults.append(row);
     }
-    customerSelect.value = clients.has(selected) ? selected : '';
-    $('#venda-cliente-avulso', form).hidden = Boolean(customerSelect.value);
+    if (customersFailed) clientStatus.textContent = 'Não foi possível carregar o cadastro. Abra + Vender novamente ou informe um nome avulso.';
+    else if (!customersLoaded) clientStatus.textContent = 'Carregando clientes…';
+    else if (!matches.length) clientStatus.textContent = search.value.trim() ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.';
+    else if (matches.length > 8) clientStatus.textContent = 'Mostrando 8 clientes. Digite mais para refinar a busca.';
+    else clientStatus.textContent = 'Selecione um cliente abaixo.';
+  }
+
+  function selectCustomer(client) {
+    customer = client;
+    $('#venda-cliente-busca', form).hidden = true;
+    $('#venda-cliente-avulso', form).hidden = true;
+    $('#venda-cliente-nome', form).textContent = customerLabel(client);
+    $('#venda-cliente-escolhido', form).hidden = false;
+    changeCustomer.focus();
   }
 
   function refreshProducts(select) {
@@ -138,12 +166,26 @@ async function renderNovaVenda(root) {
   }
 
   search.oninput = () => refreshCustomers();
-  customerSelect.onchange = () => refreshCustomers();
+  search.onkeydown = (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const matches = buscarClientes(clients.values(), search.value);
+    if (search.value.trim() && matches.length === 1) selectCustomer(matches[0]);
+    else clientResults.querySelector('button')?.focus();
+  };
+  changeCustomer.onclick = () => {
+    customer = null;
+    $('#venda-cliente-busca', form).hidden = false;
+    $('#venda-cliente-avulso', form).hidden = false;
+    $('#venda-cliente-escolhido', form).hidden = true;
+    refreshCustomers();
+    search.focus();
+    search.select();
+  };
   $('#venda-cadastrar-cliente', form).onclick = () => editarCliente(null, (client) => {
     clients.set(client.id, client);
     search.value = '';
-    clientStatus.hidden = true;
-    refreshCustomers(client.id);
+    selectCustomer(client);
   });
   $('#venda-adicionar', form).onclick = () => addItem(true);
   list.addEventListener('input', updateTotal);
@@ -157,12 +199,10 @@ async function renderNovaVenda(root) {
     if (!form.reportValidity()) return;
     if (!session || !perfil?.aprovado) return errBox(errorBox, new Error('Entre novamente com uma conta aprovada.'));
     const field = (name) => form.elements.namedItem(name).value;
-    const client = clients.get(customerSelect.value);
-    if (customerSelect.value && !client) return errBox(errorBox, new Error('Selecione novamente o cliente.'));
     const shared = {
       data: field('data'),
-      cliente: client?.nome || field('cliente').trim() || null,
-      cliente_id: client?.id || null,
+      cliente: customer?.nome || field('cliente').trim() || null,
+      cliente_id: customer?.id || null,
       forma_pagamento: field('forma_pagamento'),
       status: field('status'),
       vendedor: perfil.id,
@@ -198,11 +238,10 @@ async function renderNovaVenda(root) {
   try {
     const rows = await carregarClientes();
     for (const client of rows) if (!clients.has(client.id)) clients.set(client.id, client);
-    clientStatus.hidden = clients.size > 0;
-    clientStatus.textContent = 'Nenhum cliente cadastrado.';
+    customersLoaded = true;
     refreshCustomers();
   } catch (error) {
-    clientStatus.hidden = false;
-    clientStatus.textContent = 'Não foi possível carregar os clientes. Você pode informar um nome avulso.';
+    customersFailed = true;
+    refreshCustomers();
   }
 }

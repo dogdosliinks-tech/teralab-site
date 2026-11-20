@@ -10,6 +10,16 @@ async function carregarClientes() {
   }
 }
 
+function buscarClientes(clientes, busca) {
+  const normalize = (value) => String(value || '').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const term = normalize(busca);
+  const phone = /^[\d\s()+.-]+$/.test(term) ? term.replace(/\D/g, '') : '';
+  return [...clientes].filter((cliente) => normalize(cliente.nome).includes(term) ||
+    (phone && String(cliente.telefone || '').replace(/\D/g, '').includes(phone)))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
 function editarCliente(cliente, aoSalvar) {
   if ($('#cliente-dialog')) return;
   const dialog = document.createElement('dialog');
@@ -72,16 +82,11 @@ async function renderClientes(root) {
     <div class="list clientes-list" aria-live="polite"><p class="empty">Carregando clientes…</p></div>`;
   const list = $('.clientes-list', root);
   const search = $('#cliente-busca', root);
-  const findable = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const digits = (value) => String(value || '').replace(/\D/g, '');
   const clientes = new Map();
 
   function draw() {
     const term = search.value.trim();
-    const termDigits = digits(term);
-    const matches = [...clientes.values()].filter((cliente) => findable(cliente.nome).includes(findable(term)) ||
-      (termDigits && digits(cliente.telefone).includes(termDigits)));
-    matches.sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    const matches = buscarClientes(clientes.values(), term);
     list.replaceChildren();
     if (!matches.length) {
       list.innerHTML = `<p class="empty">${term ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}</p>`;
