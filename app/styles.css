@@ -130,6 +130,13 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .pedido-compact .pedido-actions{display:grid;grid-template-columns:1fr 1fr;border:0;padding:0;gap:8px}
 .pedido-compact .pedido-actions .btn,.pedido-card-footer .btn{min-height:44px;padding:8px;font-size:14px}
 .pedido-card-footer{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.venda-cliente,.venda-item{min-width:0;margin:0;padding:14px;gap:12px}
+.venda-cliente legend,.venda-item legend{padding:0 6px;font-weight:700}
+.venda-cliente .pedido-hint{margin:0}
+.venda-item-rodape,.cliente-card{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.cliente-card h3,.cliente-card p{overflow-wrap:anywhere}
+.cliente-card p{color:var(--muted)}
+.clientes-list{margin-top:14px}
 .pedido-summary{grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr))}
 .pedido-actions .btn[data-production][aria-pressed="true"]{border-color:#27875b;background:#163427;color:var(--ok)}
 .pedido-detail-dialog{width:min(640px,calc(100% - 24px))}

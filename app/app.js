@@ -134,6 +134,7 @@ function render() {
   else if (view === "nova-venda") renderNovaVenda(root);
   else if (view === "vendas") renderVendas(root);
   else if (view === "pedidos") renderPedidos(root);
+  else if (view === "clientes") renderClientes(root);
   else if (view === "custos") renderCustos(root);
   else if (view === "equipe") renderEquipe(root);
   else if (view === "calculadora") renderCalculadora(root);
@@ -419,85 +420,6 @@ function renderProdutoForm(root) {
     if (error) return toast(error.message);
     toast("Peça excluída");
     view = "produtos";
-    render();
-  };
-}
-
-async function renderNovaVenda(root) {
-  try { if (!produtos.length) await fetchProdutos(); } catch {}
-  const opts = produtos.map((p) => `<option value="${esc(p.id)}">${esc(p.nome)}</option>`).join("");
-  root.innerHTML = `
-    <div class="section-head"><h2>Nova venda</h2></div>
-    <form class="form" id="form-venda">
-      <label>Peça
-        <select name="produto_id">
-          <option value="">Venda avulsa</option>
-          ${opts}
-        </select>
-      </label>
-      <label>Descrição <input name="descricao" placeholder="Nome da peça ou serviço"></label>
-      <label>Cliente <input name="cliente" placeholder="Opcional"></label>
-      <label>Quantidade <input name="quantidade" type="number" min="1" step="1" inputmode="numeric" value="1" required></label>
-      <label>Valor unitário (R$) <input name="valor_unit" type="number" min="0" step="0.01" required></label>
-      <label>Custo unitário (R$) <input name="custo_unit" type="number" min="0" step="0.01" placeholder="Cópia do custo da peça"></label>
-      <label>Desconto (R$) <input name="desconto" type="number" min="0" step="0.01" value="0"></label>
-      <label>Pagamento
-        <select name="forma_pagamento">${PAY.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
-      </label>
-      <label>Status
-        <select name="status">
-          <option value="pago">Pago</option>
-          <option value="pendente">Pendente</option>
-        </select>
-      </label>
-      <label>Data <input name="data" type="date" value="${todayISO()}" required></label>
-      <label>Observação <textarea name="obs" placeholder="Opcional"></textarea></label>
-      <div class="margin-box" id="venda-total"></div>
-      <p class="error" id="venda-error" hidden></p>
-      <button class="btn primary" type="submit">Registrar venda</button>
-    </form>`;
-  const form = $("#form-venda");
-  const fillFromProduto = () => {
-    const id = form.produto_id.value;
-    const p = produtos.find((x) => x.id === id);
-    if (!p) return;
-    form.descricao.value = p.nome;
-    if (p.preco != null) form.valor_unit.value = p.preco;
-    if (p.custo != null) form.custo_unit.value = p.custo;
-    updateTotal();
-  };
-  const updateTotal = () => {
-    const q = Number(form.quantidade.value || 0);
-    const vu = Number(form.valor_unit.value || 0);
-    const d = Number(form.desconto.value || 0);
-    const cu = form.custo_unit.value === "" ? null : Number(form.custo_unit.value);
-    const total = q * vu - d;
-    const custo = cu == null ? null : q * cu;
-    $("#venda-total").innerHTML = `<strong>Total ${money(total)}</strong>${custo != null ? " · lucro " + money(total - custo) : ""}`;
-  };
-  form.produto_id.onchange = fillFromProduto;
-  ["quantidade", "valor_unit", "desconto", "custo_unit"].forEach((n) => form[n].addEventListener("input", updateTotal));
-  updateTotal();
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      data: form.data.value,
-      cliente: form.cliente.value.trim() || null,
-      produto_id: form.produto_id.value || null,
-      descricao: form.descricao.value.trim() || (form.produto_id.value && (produtos.find((x) => x.id === form.produto_id.value) || {}).nome) || "Venda avulsa",
-      quantidade: Number(form.quantidade.value),
-      valor_unit: Number(form.valor_unit.value),
-      custo_unit: form.custo_unit.value === "" ? null : Number(form.custo_unit.value),
-      desconto: Number(form.desconto.value || 0),
-      forma_pagamento: form.forma_pagamento.value,
-      status: form.status.value,
-      vendedor: perfil && perfil.id,
-      obs: form.obs.value.trim() || null,
-    };
-    const { error } = await sb.from("vendas").insert(payload);
-    if (error) return errBox($("#venda-error"), error);
-    toast("Venda registrada");
-    view = "vendas";
     render();
   };
 }
