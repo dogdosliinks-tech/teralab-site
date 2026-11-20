@@ -1,4 +1,4 @@
-const CACHE = "teralab-gestao-v11-status-pedidos";
+const CACHE = "teralab-gestao-v12-preco-unitario";
 const ASSETS = [
   "./",
   "./index.html",

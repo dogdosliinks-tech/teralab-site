@@ -20,27 +20,49 @@ function costing(x,params=defaults){
  const complete=[filament,pack,depreciation].every(v=>v!==null);
  return {params:c,gramas:g,horas:h,embalagens:p,filamento:filament,embalagem:pack,depreciacao:depreciation,parcial:(filament??0)+(pack??0)+(depreciation??0),total:complete?filament+pack+depreciation:null,complete};
 }
+function orderQuantity(value){
+ const quantity=number(value,'quantidade',100000);
+ if(quantity<1||!Number.isInteger(quantity))throw Error('Quantidade deve ser inteira e maior que zero.');
+ return quantity;
+}
+
+function orderPrice(quantity,unitValue,discountValue=0){
+ const units=orderQuantity(quantity);
+ const unit=cents(number(unitValue,'preço unitário',1e7));
+ const discount=cents(number(discountValue,'desconto',1e7));
+ const total=units*unit-discount;
+ if(total<0)throw Error('O desconto não pode superar o valor do pedido.');
+ if(total>1e9)throw Error('O total do pedido deve ser de até R$ 10.000.000,00.');
+ return {unit,discount,total};
+}
+
 function validate(x){
  const cliente=String(x.cliente||'').trim(),descricao=String(x.descricao||'').trim();
  if(cliente.length<2||cliente.length>100)throw Error('Informe o nome do cliente (2 a 100 caracteres).');
  if(descricao.length<2||descricao.length>500)throw Error('Informe o tipo ou a descrição do pedido.');
- const q=number(x.quantidade,'quantidade',100000);if(q<1||!Number.isInteger(q))throw Error('Quantidade deve ser inteira e maior que zero.');
- const total=cents(number(x.total,'valor total',1e7));
+ const q=orderQuantity(x.quantidade);
+ let price;
+ if(x.precoUnitario!==undefined){
+  price=orderPrice(q,x.precoUnitario,x.desconto||0);
+ }else{
+  const total=cents(number(x.total,'valor total',1e7));
+  const unit=Math.ceil(total/q);
+  price={unit,discount:unit*q-total,total};
+ }
  if(!/^\d{4}-\d{2}-\d{2}$/.test(x.data)||isNaN(Date.parse(x.data+'T12:00:00Z'))||new Date(x.data+'T12:00:00Z').toISOString().slice(0,10)!==x.data)throw Error('Informe uma data válida para o registro.');
  let status=x.status,received=null;
- if(x.recebido!==undefined){received=cents(number(x.recebido,'valor já recebido',1e7));if(received>total)throw Error('O valor recebido não pode ultrapassar o total do pedido.');status=received===total?'pago':'pendente';}
+ if(x.recebido!==undefined){received=cents(number(x.recebido,'valor já recebido',1e7));if(received>price.total)throw Error('O valor recebido não pode ultrapassar o total do pedido.');status=received===price.total?'pago':'pendente';}
  if(!['pago','pendente'].includes(status))throw Error('Confirme se o pedido está pago ou não pago.');
  for(const k of ['pronto','entregue'])if(![true,false,null].includes(x[k]))throw Error('Status inválido.');
  if(!['3d','software','outro'].includes(x.tipo))throw Error('Escolha o tipo de pedido.');
  const obs=String(x.obs||'').trim();if(obs.length>2500)throw Error('Observação muito longa.');
- return {...x,cliente,descricao,quantidade:q,totalCents:total,status,received,obs};
+ return {...x,cliente,descricao,quantidade:q,price,status,received,obs};
 }
 function payload(input,params,vendedor){
  const x=validate(input),cost=x.tipo==='3d'?costing(x,params):null;
- const unit=Math.ceil(x.totalCents/x.quantidade);
  const metadata={version:1,pronto:x.pronto,entregue:x.entregue,tipo:x.tipo,notas:x.obs,custo:cost,origem:x.origem||'manual'};
  if(x.received!==null)metadata.pagamento={recebidoCentavos:x.received};
- return {data:x.data,cliente:x.cliente,descricao:x.descricao,produto_id:null,quantidade:x.quantidade,valor_unit:unit/100,desconto:(unit*x.quantidade-x.totalCents)/100,custo_unit:cost?.total==null?null:cost.total/100/x.quantidade,status:x.status,forma_pagamento:'outro',vendedor,obs:encode(metadata)};
+ return {data:x.data,cliente:x.cliente,descricao:x.descricao,produto_id:null,quantidade:x.quantidade,valor_unit:x.price.unit/100,desconto:x.price.discount/100,custo_unit:cost?.total==null?null:cost.total/100/x.quantidade,status:x.status,forma_pagamento:'outro',vendedor,obs:encode(metadata)};
 }
 function preserveSale(payload,row){
  if(!row)return payload;
@@ -107,6 +129,6 @@ function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
  const matchesDelivery=!entregue||(m?.entregue??null)===situations[entregue];
  return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&matchesProduction&&matchesDelivery&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel});
+root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel});
 })(typeof globalThis==='object'?globalThis:this);
 
