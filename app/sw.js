@@ -1,9 +1,11 @@
-const CACHE = "teralab-gestao-v3";
+const CACHE = "teralab-gestao-v4-pedidos";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./pedidos-core.js",
+  "./pedidos.js",
   "./config.js",
   "./manifest.json",
   "./icon-192.png",
@@ -16,7 +18,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith("teralab-gestao-") && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
   );
 });
 

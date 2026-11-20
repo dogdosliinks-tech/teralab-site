@@ -133,6 +133,7 @@ function render() {
   else if (view === "produto") renderProdutoForm(root);
   else if (view === "nova-venda") renderNovaVenda(root);
   else if (view === "vendas") renderVendas(root);
+  else if (view === "pedidos") renderPedidos(root);
   else if (view === "custos") renderCustos(root);
   else if (view === "equipe") renderEquipe(root);
   else if (view === "calculadora") renderCalculadora(root);
@@ -161,6 +162,8 @@ function saleTotal(v) {
   return Number(v.quantidade) * Number(v.valor_unit) - Number(v.desconto || 0);
 }
 function saleCost(v) {
+  const meta = typeof TeraPedidos === "object" ? TeraPedidos.decode(v.obs) : null;
+  if (meta?.custo?.complete) return meta.custo.total / 100;
   return Number(v.quantidade) * Number(v.custo_unit || 0);
 }
 
@@ -169,7 +172,7 @@ async function renderPainel(root) {
   $("#flt-mes").onchange = (e) => { month = e.target.value || month; render(); };
   const { start, end } = monthBounds(month);
   const [vendasRes, custosRes] = await Promise.all([
-    sb.from("vendas").select("id,data,produto_id,descricao,quantidade,valor_unit,custo_unit,desconto,status").gte("data", start).lt("data", end),
+    sb.from("vendas").select("id,data,produto_id,descricao,quantidade,valor_unit,custo_unit,desconto,status,obs").gte("data", start).lt("data", end),
     sb.from("custos").select("id,valor").gte("data", start).lt("data", end),
   ]);
   if (vendasRes.error || custosRes.error) {
@@ -184,6 +187,7 @@ async function renderPainel(root) {
   const despesas = (custosRes.data || []).reduce((n, c) => n + Number(c.valor || 0), 0);
   const receber = pend.reduce((n, v) => n + saleTotal(v), 0);
   const lucro = fat - custoPecas - despesas;
+  const custosIncompletos = pagas.filter(v => v.custo_unit == null || (typeof TeraPedidos === "object" && TeraPedidos.decode(v.obs)?.custo?.complete === false)).length;
   const top = {};
   pagas.forEach((v) => {
     const key = v.descricao || v.produto_id || "Venda avulsa";
@@ -196,9 +200,10 @@ async function renderPainel(root) {
       <div class="stat"><span>Faturamento</span><strong>${money(fat)}</strong></div>
       <div class="stat"><span>Custo das peças</span><strong>${money(custoPecas)}</strong></div>
       <div class="stat"><span>Despesas</span><strong>${money(despesas)}</strong></div>
-      <div class="stat"><span>Lucro</span><strong>${money(lucro)}</strong></div>
+      <div class="stat"><span>${custosIncompletos ? "Resultado parcial" : "Resultado estimado"}</span><strong>${money(lucro)}</strong></div>
       <div class="stat wide"><span>A receber</span><strong>${money(receber)}</strong></div>
     </div>
+    ${custosIncompletos ? '<p class="error">' + custosIncompletos + ' venda(s) paga(s) com custo incompleto. O resultado não representa o lucro final.</p>' : ''}
     <div class="share-box">
       <h3>Compartilhar catálogo</h3>
       <p>Mande o catálogo do site para os clientes.</p>

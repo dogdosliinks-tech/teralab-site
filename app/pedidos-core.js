@@ -1,0 +1,59 @@
+(function(root){
+'use strict';
+const PREFIX='TERALAB_PEDIDO_V1\n';
+const defaults=Object.freeze({filamentoKg:100,embalagem:1,maquina:2000,vidaHoras:5000,residual:0,estimativa:true});
+const number=(v,field,max=1e9)=>{const n=typeof v==='number'?v:Number(String(v).replace(',','.'));if(v===''||v==null||!Number.isFinite(n)||n<0||n>max)throw Error('Revise '+field+'.');return n;};
+const optional=(v,f,max)=>v===''||v==null?null:number(v,f,max);
+const cents=v=>Math.round((v+Number.EPSILON)*100);
+function decode(obs){
+ if(typeof obs!=='string'||!obs.startsWith(PREFIX))return null;
+ try{const x=JSON.parse(obs.slice(PREFIX.length));return x&&x.version===1&&typeof x==='object'?x:null;}catch{return null;}
+}
+function encode(x){return PREFIX+JSON.stringify({...x,version:1});}
+function costing(x,params=defaults){
+ const c={...params};
+ for(const k of ['filamentoKg','embalagem','maquina','vidaHoras','residual'])c[k]=number(c[k],k);
+ if(c.vidaHoras<=0||c.residual>c.maquina)throw Error('Revise a vida útil e o valor residual.');
+ const g=optional(x.gramas,'gramas',1e7),h=optional(x.horas,'horas',1e5),p=optional(x.embalagens,'embalagens',1e5);
+ if(p!==null&&!Number.isInteger(p))throw Error('Informe um número inteiro de embalagens.');
+ const filament=g==null?null:cents(g/1000*c.filamentoKg),pack=p==null?null:cents(p*c.embalagem),depreciation=h==null?null:cents(h*(c.maquina-c.residual)/c.vidaHoras);
+ const complete=[filament,pack,depreciation].every(v=>v!==null);
+ return {params:c,gramas:g,horas:h,embalagens:p,filamento:filament,embalagem:pack,depreciacao:depreciation,parcial:(filament??0)+(pack??0)+(depreciation??0),total:complete?filament+pack+depreciation:null,complete};
+}
+function validate(x){
+ const cliente=String(x.cliente||'').trim(),descricao=String(x.descricao||'').trim();
+ if(cliente.length<2||cliente.length>100)throw Error('Informe o nome do cliente (2 a 100 caracteres).');
+ if(descricao.length<2||descricao.length>500)throw Error('Informe o tipo ou a descrição do pedido.');
+ const q=number(x.quantidade,'quantidade',100000);if(q<1||!Number.isInteger(q))throw Error('Quantidade deve ser inteira e maior que zero.');
+ const total=cents(number(x.total,'valor total',1e7));
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(x.data)||isNaN(Date.parse(x.data+'T12:00:00Z'))||new Date(x.data+'T12:00:00Z').toISOString().slice(0,10)!==x.data)throw Error('Informe uma data válida para o registro.');
+ if(!['pago','pendente'].includes(x.status))throw Error('Confirme se o pedido está pago ou não pago.');
+ for(const k of ['pronto','entregue'])if(![true,false,null].includes(x[k]))throw Error('Status inválido.');
+ if(!['3d','software','outro'].includes(x.tipo))throw Error('Escolha o tipo de pedido.');
+ const obs=String(x.obs||'').trim();if(obs.length>2500)throw Error('Observação muito longa.');
+ return {...x,cliente,descricao,quantidade:q,totalCents:total,obs};
+}
+function payload(input,params,vendedor){
+ const x=validate(input),cost=x.tipo==='3d'?costing(x,params):null;
+ const unit=Math.ceil(x.totalCents/x.quantidade);
+ const metadata={version:1,pronto:x.pronto,entregue:x.entregue,tipo:x.tipo,notas:x.obs,custo:cost,origem:x.origem||'manual'};
+ return {data:x.data,cliente:x.cliente,descricao:x.descricao,produto_id:null,quantidade:x.quantidade,valor_unit:unit/100,desconto:(unit*x.quantidade-x.totalCents)/100,custo_unit:cost?.total==null?null:cost.total/100/x.quantidade,status:x.status,forma_pagamento:'outro',vendedor,obs:encode(metadata)};
+}
+function preserveSale(payload,row){
+ if(!row)return payload;
+ const updated={...payload,produto_id:row.produto_id,forma_pagamento:row.forma_pagamento};
+ delete updated.vendedor;
+ if(!decode(row.obs)?.custo&&updated.custo_unit==null)updated.custo_unit=row.custo_unit;
+ return updated;
+}
+function summary(rows){
+ return rows.reduce((s,r)=>{const m=decode(r.obs);const total=cents(Number(r.quantidade)*Number(r.valor_unit)-Number(r.desconto||0));s.total+=total;if(r.status==='pago')s.pago+=total;else if(r.status==='pendente')s.receber+=total;if(m?.pronto!==true)s.produzir++;if(m?.entregue!==true)s.entregar++;return s;},{total:0,pago:0,receber:0,produzir:0,entregar:0});
+}
+function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
+ const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ return rows.filter(r=>{const m=decode(r.obs);
+ return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&(!pronto||(pronto==='sim'?m?.pronto===true:m?.pronto!==true))&&(!entregue||(entregue==='sim'?m?.entregue===true:m?.entregue!==true))&&(!pago||r.status===pago);});
+}
+root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents});
+})(typeof globalThis==='object'?globalThis:this);
+
