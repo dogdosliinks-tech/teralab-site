@@ -1,4 +1,4 @@
-const pedidoState={rows:[],filters:{},params:{...TeraPedidos.defaults},drafts:[]};
+const pedidoState={rows:[],filters:{},params:{...TeraPedidos.defaults},drafts:[],panel:'orders'};
 let pedidoEpoch=0;
 const pedidoText=v=>v===true?'Sim':v===false?'Não':'A conferir';
 const pedidoMeta=r=>TeraPedidos.decode(r?.obs)||{pronto:null,entregue:null,tipo:'3d',notas:r?.obs||'',custo:null};
@@ -24,13 +24,16 @@ function pedidoLinhaFilamento(meta){
 }
 async function renderPedidos(root){
  const epoch=++pedidoEpoch;
- root.innerHTML='<div class="section-head"><h2>Caderneta de pedidos</h2><button class="btn" id="pedido-new">Novo pedido</button></div><div class="row"><button class="btn" id="pedido-import">Conferir caderneta</button><button class="btn" id="pedido-copy">Baixar cópia</button><button class="btn" id="pedido-print" disabled>Imprimir pedidos filtrados</button><input id="pedido-file" type="file" accept="application/json,.json" hidden></div><p class="empty">Carregando…</p>';
+ root.innerHTML='<div class="section-head"><h2>Caderneta de pedidos</h2><button class="btn" id="pedido-new">Novo pedido</button></div><div class="row" role="group" aria-label="Visualização de pedidos"><button class="btn pedido-view-button" id="pedido-view-orders" type="button" aria-controls="pedido-order-list" aria-pressed="true" disabled>Todos os pedidos</button><button class="btn pedido-view-button" id="pedido-view-queue" type="button" aria-controls="pedido-queue" aria-pressed="false" disabled>Fila de produção</button></div><div id="pedido-order-list"><div class="row pedido-toolbar"><button class="btn" id="pedido-import">Conferir caderneta</button><button class="btn" id="pedido-copy">Baixar cópia</button><button class="btn" id="pedido-print" disabled>Imprimir pedidos filtrados</button><input id="pedido-file" type="file" accept="application/json,.json" hidden></div><p class="empty">Carregando…</p></div><section id="pedido-queue" aria-labelledby="pedido-queue-title" hidden></section>';
  $('#pedido-new').onclick=()=>pedidoEditDialog(root);
  $('#pedido-import').onclick=()=>$('#pedido-file').click();
  $('#pedido-file').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>1000000)throw Error('Use um arquivo de até 1 MB.');const x=JSON.parse(await file.text());if(x.formato!=='teralab-caderneta-rascunho-v1'||!Array.isArray(x.pedidos)||x.pedidos.length>200)throw Error('Use o arquivo de rascunhos da caderneta.');pedidoState.drafts=x.pedidos;renderPedidoDrafts(root);}catch(e){toast(e.message);}};
  $('#pedido-copy').onclick=()=>{if(!pedidoState.rows.length)return toast('Aguarde o carregamento.');if(!confirm('Esta cópia contém clientes e valores. Baixar neste dispositivo?'))return;const b=new Blob([JSON.stringify({formato:'teralab-vendas-backup-v1',data:todayISO(),vendas:pedidoState.rows},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='teralab-pedidos-'+todayISO()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
  try{const all=[];let done=false;for(let page=0;page<20;page++){const {data,error}=await sb.from('vendas').select('*').order('data',{ascending:false}).order('id',{ascending:false}).range(page*1000,page*1000+999);if(error)throw error;all.push(...data);if(data.length<1000){done=true;break;}}if(!done)throw Error('Mais de 20 mil registros. A consulta precisa de paginação adicional.');if(epoch!==pedidoEpoch||view!=='pedidos')return;pedidoState.rows=all;}catch(e){if(epoch===pedidoEpoch)root.querySelector('.empty').textContent='Não foi possível carregar: '+e.message;return;}
- root.querySelector('.empty').remove();const area=document.createElement('div');root.append(area);
+ root.querySelector('.empty').remove();
+ const orders=$('#pedido-order-list',root),queue=$('#pedido-queue',root),area=document.createElement('div');
+ const ordersTab=$('#pedido-view-orders',root),queueTab=$('#pedido-view-queue',root);
+ area.className='pedido-list-area';orders.append(area);
  area.innerHTML='<p class="pedido-hint">Todos os meses. O pagamento é compartilhado com a tela Vendas.</p><div class="grid-cards pedido-summary"></div><div class="pedido-filters"><label>Cliente, pedido, material ou cor<input type="search" name="busca" maxlength="100"></label><label>Produção<select name="pronto"><option value="">Todos</option>'+pedidoOpcoesProducao()+'</select></label><label>Entrega<select name="entregue"><option value="">Todos</option><option value="sim">Entregue</option><option value="nao">Não entregue</option><option value="conferir">A conferir</option></select></label><label>Pagamento<select name="pago"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Não pago (com saldo)</option><option value="parcial">Pago parcialmente</option></select></label><button class="btn" type="button" id="pedido-limpar-filtros" hidden>Limpar filtros</button></div><p class="pedido-count" role="status"></p><div class="list pedido-list"></div>';
  const filterFields=$$('input,select',area);
  const clearFilters=$('#pedido-limpar-filtros',area);
@@ -49,7 +52,8 @@ async function renderPedidos(root){
   const index=pedidoState.rows.findIndex(entry=>entry.id===row.id);
   if(index<0)return;
   pedidoState.rows[index]={...pedidoState.rows[index],...patch};
-  draw(row.id,action);
+  if(pedidoState.panel==='orders')draw(row.id,action);
+  else drawQueue();
  }
 
  function makeCard(row){
@@ -86,7 +90,87 @@ async function renderPedidos(root){
   }
   if(!rows.length)list.innerHTML='<p class="empty">Nenhum pedido nestes filtros.</p>';
  }
- draw();
+ const drawQueue=pedidoQueueView(queue,applyChange);
+ function showPanel(panel){
+  pedidoState.panel=panel;
+  orders.hidden=panel!=='orders';queue.hidden=panel!=='queue';
+  ordersTab.setAttribute('aria-pressed',String(!orders.hidden));
+  queueTab.setAttribute('aria-pressed',String(!queue.hidden));
+  if(queue.hidden)draw();else drawQueue();
+ }
+ ordersTab.disabled=queueTab.disabled=false;
+ ordersTab.onclick=()=>showPanel('orders');
+ queueTab.onclick=()=>showPanel('queue');
+ showPanel(pedidoState.panel);
+}
+function pedidoQueueView(root,applyChange){
+ root.innerHTML='<h3 id="pedido-queue-title" tabindex="-1">Fila de produção</h3><div class="pedido-queue-group"><h4>Em produção <span data-count="making"></span></h4><ul class="pedido-queue-list" data-queue="making"></ul><p class="empty" data-empty="making">Nenhum pedido em produção.</p></div><div class="pedido-queue-group"><h4>A produzir <span data-count="waiting"></span></h4><ol class="pedido-queue-list" data-queue="waiting"></ol><p class="empty" data-empty="waiting">Nenhum pedido aguardando impressão.</p></div>';
+ const title=$('#pedido-queue-title',root);
+ let saving=false;
+ function draw(){
+  if(saving)return;
+  const {waiting,inProgress}=TeraPedidos.productionQueue(pedidoState.rows);
+  renderGroup('making',inProgress);
+  renderGroup('waiting',waiting);
+ }
+ function renderGroup(name,entries){
+  const waiting=name==='waiting';
+  const list=root.querySelector(`[data-queue="${name}"]`);
+  root.querySelector(`[data-count="${name}"]`).textContent=`(${entries.length})`;
+  root.querySelector(`[data-empty="${name}"]`).hidden=entries.length>0;
+  list.hidden=!entries.length;
+  list.replaceChildren(...entries.map(({row,meta},index)=>{
+   const item=document.createElement('li');item.className='card pedido-queue-item';item.dataset.orderId=row.id;
+   const position=waiting?`<span class="pedido-queue-position" aria-hidden="true">${index+1}</span>`:'';
+   const deadline=pedidoPrazo(meta);
+   item.innerHTML=position+`<div class="pedido-queue-details"><h5>${esc(row.descricao||'Pedido')}</h5><p>${esc(row.cliente||'Cliente não informado')} · ${esc(row.quantidade)} un.${deadline}</p>${pedidoLinhaFilamento(meta)}</div><div class="pedido-queue-actions"></div>`;
+   const actions=$('.pedido-queue-actions',item);
+   const control=(action,label,patch,feedback,disabled=false)=>{
+    const button=document.createElement('button');
+    button.type='button';button.className='btn';button.textContent=label;button.dataset.queueAction=action;
+    button.disabled=disabled;
+    button.onclick=()=>save(row,button,patch,feedback);
+    actions.append(button);
+   };
+   if(waiting){
+    const move=(action,label,to)=>control(action,label,()=>TeraPedidos.queueMovePatch(entries,index,to),'Ordem da fila salva',to===index||to<0||to>=entries.length);
+    move('top','Mover para o topo',0);
+    move('up','Subir',index-1);
+    move('down','Descer',index+1);
+    control('start','Iniciar produção',()=>TeraPedidos.productionPatch(row,TeraPedidos.inProduction),'Pedido em produção');
+   }else control('finish','Concluir impressão',()=>TeraPedidos.productionPatch(row,true),'Pedido marcado como pronto');
+   return item;
+  }));
+ }
+ async function save(row,button,makePatch,feedback){
+  if(saving)return;
+  saving=true;
+  const focusAction=button.dataset.queueAction;
+  const controls=$$('button:not(:disabled)',root);
+  controls.forEach(control=>{control.disabled=true;});
+  try{
+   const patch=makePatch();
+   await pedidoUpdate(row,patch);
+   applyChange(row,patch);
+   toast(feedback);
+  }catch(e){toast(e.message);}
+  finally{
+   saving=false;
+   if(root.isConnected&&!root.hidden){
+    const shouldFocus=document.activeElement===document.body||root.contains(document.activeElement);
+    draw();
+    if(shouldFocus){
+     const item=$$('.pedido-queue-item',root).find(entry=>entry.dataset.orderId===row.id);
+     const next=item?.querySelector(`[data-queue-action="${focusAction}"]:not(:disabled)`)||item?.querySelector('button:not(:disabled)')||title;
+     next.focus({preventScroll:true});
+    }
+   }
+  }
+ }
+ return draw;
+}
+function pedidoPrazo(meta){
+ return typeof meta.prazo==='string'&&meta.prazo?` <span class="pedido-queue-deadline">Prazo ${esc(meta.prazo.split('-').reverse().join('/'))}</span>`:'';
 }
 function renderPedidoDrafts(root){++pedidoEpoch;root.innerHTML='<div class="section-head"><h2>Conferir caderneta</h2><button class="btn" id="pedido-back">Voltar</button></div><p class="pedido-hint">Confira cada anotação antes de gravar. Datas, nomes, valores e situações desconhecidos permanecem a conferir.</p><div class="list" id="pedido-drafts"></div>';$('#pedido-back').onclick=()=>renderPedidos(root);for(const d of pedidoState.drafts){const c=document.createElement('article');c.className='card';c.innerHTML=`<h3>${esc(d.cliente||'Nome a conferir')}</h3><p>${d.total==null?'Valor a conferir':money(d.total)}</p><p class="pedido-hint">${esc(d.obs||'Descrição e situações a conferir.')}</p><button class="btn" ${d.importado?'disabled':''}>${d.importado?'Salvo':'Conferir e importar'}</button>`;c.querySelector('button').onclick=()=>renderPedidoForm(root,null,d);$('#pedido-drafts').append(c);}}
 function renderPedidoForm(root,row=null,draft=null,options={}){
@@ -102,7 +186,7 @@ function renderPedidoForm(root,row=null,draft=null,options={}){
   ? input('desconto','Desconto do pedido (R$)','number',row.desconto,'required min="0" max="10000000" step="0.01" inputmode="decimal"')
   : '';
  const totalPreview=draft?'':'<div class="margin-box"><strong>Total do pedido</strong> <output id="pedido-total-calculado" aria-live="polite">—</output></div>';
- root.innerHTML=`<div class="section-head"><h2>${row?'Editar pedido':draft?'Conferir anotação':'Novo pedido'}</h2><button class="btn" id="pedido-back">Voltar</button></div><form id="pedido-form" class="form">${input('cliente','Nome do cliente','text',x.cliente,'required minlength="2" maxlength="100"')}${input('descricao','Tipo / descrição do pedido','text',x.descricao,'required minlength="2" maxlength="500"')}<label>Categoria<select name="tipo"><option value="3d">Impressão 3D</option><option value="software">Software / serviço</option><option value="outro">Outro</option></select></label>${pedidoCamposFilamento('pedido',draft||meta)}${pedidoSugestoesFilamento('pedido')}<div class="pedido-cols">${input('quantidade','Quantidade','number',x.quantidade,'required min="1" max="100000" step="1"')}${priceFields}</div>${discountField}${totalPreview}${input('data','Data do registro','date',x.data,'required')}${draft?'<p class="pedido-hint">Informe a data real ou escolha hoje para registrar a migração.</p>':''}<div class="pedido-cols"><label>Produção<select name="pronto">${pedidoOpcoesProducao(x.pronto??null)}</select></label>${pedidoSelectEntrega(x.entregue)}</div>${input('recebido','Valor total já recebido (R$)','number',x.recebido,'required min="0" max="10000000" step="0.01" inputmode="decimal"')}<p class="pedido-hint">Informe zero se ainda não recebeu. Para pagamentos parciais, informe o total acumulado recebido.</p><fieldset id="pedido-costs"><legend>Custos do pedido inteiro</legend><p class="pedido-hint">Peso, horas e embalagens são os totais do pedido. Preencha zero somente se souber que não houve consumo.</p><div class="pedido-cols">${input('gramas','Filamento total (g)','number',x.gramas,'min="0" step="0.01"')}${input('horas','Tempo total de impressão (h)','number',x.horas,'min="0" step="0.01"')}${input('embalagens','Número de embalagens','number',x.embalagens,'min="0" step="1"')}</div><details><summary>Parâmetros de cálculo</summary><div class="pedido-cols">${input('filamentoKg','Filamento por kg (R$)','number',params.filamentoKg,'required min="0" step="0.01"')}${input('embalagem','Cada embalagem (R$)','number',params.embalagem,'required min="0" step="0.01"')}${input('maquina','Valor da impressora (R$)','number',params.maquina,'required min="0" step="0.01"')}${input('vidaHoras','Vida útil estimada (horas)','number',params.vidaHoras,'required min="1" step="1"')}${input('residual','Valor residual estimado (R$)','number',params.residual,'required min="0" step="0.01"')}</div><p class="pedido-hint">5.000 h é uma hipótese editável para orçamento. Os parâmetros ficam gravados com cada pedido, sem recalcular os anteriores.</p></details><div class="margin-box" id="pedido-preview" role="status"></div><p class="pedido-hint">Energia, manutenção e mão de obra não estão incluídas. Não desconte duas vezes a compra do mesmo material ao apurar margem.</p></fieldset><label>Observações<textarea name="obs" maxlength="2500"></textarea></label><p class="error" id="pedido-error" hidden role="alert"></p><button class="btn primary" type="submit" id="pedido-save">${draft?'Confirmar dados e importar':'Salvar pedido'}</button></form>`;
+ root.innerHTML=`<div class="section-head"><h2>${row?'Editar pedido':draft?'Conferir anotação':'Novo pedido'}</h2><button class="btn" id="pedido-back">Voltar</button></div><form id="pedido-form" class="form">${input('cliente','Nome do cliente','text',x.cliente,'required minlength="2" maxlength="100"')}${input('descricao','Tipo / descrição do pedido','text',x.descricao,'required minlength="2" maxlength="500"')}<label>Categoria<select name="tipo"><option value="3d">Impressão 3D</option><option value="software">Software / serviço</option><option value="outro">Outro</option></select></label>${pedidoCamposFilamento('pedido',draft||meta)}${pedidoSugestoesFilamento('pedido')}<div class="pedido-cols">${input('quantidade','Quantidade','number',x.quantidade,'required min="1" max="100000" step="1"')}${priceFields}</div>${discountField}${totalPreview}<div class="pedido-cols">${input('data','Data do registro','date',x.data,'required')}${input('prazo','Prazo de entrega (opcional)','date',x.prazo??meta.prazo)}</div>${draft?'<p class="pedido-hint">Informe a data real ou escolha hoje para registrar a migração.</p>':''}<div class="pedido-cols"><label>Produção<select name="pronto">${pedidoOpcoesProducao(x.pronto??null)}</select></label>${pedidoSelectEntrega(x.entregue)}</div>${input('recebido','Valor total já recebido (R$)','number',x.recebido,'required min="0" max="10000000" step="0.01" inputmode="decimal"')}<p class="pedido-hint">Informe zero se ainda não recebeu. Para pagamentos parciais, informe o total acumulado recebido.</p><fieldset id="pedido-costs"><legend>Custos do pedido inteiro</legend><p class="pedido-hint">Peso, horas e embalagens são os totais do pedido. Preencha zero somente se souber que não houve consumo.</p><div class="pedido-cols">${input('gramas','Filamento total (g)','number',x.gramas,'min="0" step="0.01"')}${input('horas','Tempo total de impressão (h)','number',x.horas,'min="0" step="0.01"')}${input('embalagens','Número de embalagens','number',x.embalagens,'min="0" step="1"')}</div><details><summary>Parâmetros de cálculo</summary><div class="pedido-cols">${input('filamentoKg','Filamento por kg (R$)','number',params.filamentoKg,'required min="0" step="0.01"')}${input('embalagem','Cada embalagem (R$)','number',params.embalagem,'required min="0" step="0.01"')}${input('maquina','Valor da impressora (R$)','number',params.maquina,'required min="0" step="0.01"')}${input('vidaHoras','Vida útil estimada (horas)','number',params.vidaHoras,'required min="1" step="1"')}${input('residual','Valor residual estimado (R$)','number',params.residual,'required min="0" step="0.01"')}</div><p class="pedido-hint">5.000 h é uma hipótese editável para orçamento. Os parâmetros ficam gravados com cada pedido, sem recalcular os anteriores.</p></details><div class="margin-box" id="pedido-preview" role="status"></div><p class="pedido-hint">Energia, manutenção e mão de obra não estão incluídas. Não desconte duas vezes a compra do mesmo material ao apurar margem.</p></fieldset><label>Observações<textarea name="obs" maxlength="2500"></textarea></label><p class="error" id="pedido-error" hidden role="alert"></p><button class="btn primary" type="submit" id="pedido-save">${draft?'Confirmar dados e importar':'Salvar pedido'}</button></form>`;
  $('#pedido-back').onclick=()=>options.onCancel?options.onCancel():draft?renderPedidoDrafts(root):renderPedidos(root);const f=$('#pedido-form'),el=n=>f.elements.namedItem(n),val=n=>el(n).value;el('tipo').value=x.tipo||'3d';el('obs').value=x.obs||'';
  const totalOutput=$('#pedido-total-calculado',f);
  function updateOrderTotal(){
@@ -254,7 +338,7 @@ function pedidoDetails(root,row){
  const meta=pedidoMeta(row),p=TeraPedidos.payment(row),c=meta.custo,dialog=document.createElement('dialog');
  dialog.id='pedido-details-dialog';dialog.className='pedido-dialog pedido-detail-dialog';dialog.setAttribute('aria-labelledby','pedido-detail-title');
  const cost=c?(c.complete?'Custo estimado '+money(c.total/100):'Custo incompleto; valores conhecidos '+money(c.parcial/100)):(row.custo_unit!=null?'Custo informado '+money(Number(row.custo_unit)*Number(row.quantidade)):'Custo não informado');
- dialog.innerHTML='<div class="form"><h2 id="pedido-detail-title">'+esc(row.cliente||'Pedido')+'</h2><p>'+esc(row.descricao||'Descrição não informada')+'</p>'+pedidoLinhaFilamento(meta)+'<p class="pedido-hint">'+esc(row.quantidade)+' unidade(s) · Registro '+esc(row.data)+'</p><dl class="pedido-status"><div><dt>Produção</dt><dd>'+TeraPedidos.productionLabel(meta.pronto)+'</dd></div><div><dt>Entregue</dt><dd>'+pedidoText(meta.entregue)+'</dd></div><div><dt>Pagamento</dt><dd>'+(p.partial?'Parcial':p.due===0?'Pago':'Não pago')+'</dd></div></dl><p><strong>Total '+money(p.total/100)+'</strong></p><p>Recebido '+money(p.received/100)+' · Falta pagar '+money(p.due/100)+'</p><section class="margin-box"><h3>Custos</h3><p>'+esc(cost)+'</p>'+(c?'<p class="pedido-hint">Filamento: '+(c.gramas==null?'a informar':esc(c.gramas)+' g')+' · Impressão: '+(c.horas==null?'a informar':esc(c.horas)+' h')+' · Embalagens: '+(c.embalagens==null?'a informar':esc(c.embalagens))+'</p>':'')+'</section><section><h3>Observações</h3><p class="pedido-note">'+esc(meta.notas||'Sem observações.')+'</p></section><div class="row"><button class="btn" type="button" data-close>Fechar</button><button class="btn" type="button" data-print>Imprimir</button><button class="btn primary" type="button" data-edit>Editar pedido</button></div></div>';
+ dialog.innerHTML='<div class="form"><h2 id="pedido-detail-title">'+esc(row.cliente||'Pedido')+'</h2><p>'+esc(row.descricao||'Descrição não informada')+'</p>'+pedidoLinhaFilamento(meta)+'<p class="pedido-hint">'+esc(row.quantidade)+' unidade(s) · Registro '+esc(row.data)+pedidoPrazo(meta)+'</p><dl class="pedido-status"><div><dt>Produção</dt><dd>'+TeraPedidos.productionLabel(meta.pronto)+'</dd></div><div><dt>Entregue</dt><dd>'+pedidoText(meta.entregue)+'</dd></div><div><dt>Pagamento</dt><dd>'+(p.partial?'Parcial':p.due===0?'Pago':'Não pago')+'</dd></div></dl><p><strong>Total '+money(p.total/100)+'</strong></p><p>Recebido '+money(p.received/100)+' · Falta pagar '+money(p.due/100)+'</p><section class="margin-box"><h3>Custos</h3><p>'+esc(cost)+'</p>'+(c?'<p class="pedido-hint">Filamento: '+(c.gramas==null?'a informar':esc(c.gramas)+' g')+' · Impressão: '+(c.horas==null?'a informar':esc(c.horas)+' h')+' · Embalagens: '+(c.embalagens==null?'a informar':esc(c.embalagens))+'</p>':'')+'</section><section><h3>Observações</h3><p class="pedido-note">'+esc(meta.notas||'Sem observações.')+'</p></section><div class="row"><button class="btn" type="button" data-close>Fechar</button><button class="btn" type="button" data-print>Imprimir</button><button class="btn primary" type="button" data-edit>Editar pedido</button></div></div>';
  const close=()=>{dialog.close();dialog.remove();};
  dialog.querySelector('[data-close]').onclick=close;dialog.oncancel=e=>{e.preventDefault();close();};
  dialog.querySelector('[data-print]').onclick=()=>{close();pedidoPrint([row]);};

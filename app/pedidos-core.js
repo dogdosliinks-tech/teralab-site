@@ -2,6 +2,7 @@
 'use strict';
 const PREFIX='TERALAB_PEDIDO_V1\n';
 const inProduction='em-producao';
+const queueStep=1n<<128n;
 const defaults=Object.freeze({filamentoKg:100,embalagem:1,maquina:2000,vidaHoras:5000,residual:0,estimativa:true});
 const filaments=Object.freeze([
  'PLA', 'PLA+', 'PLA Silk', 'PLA Fosco', 'PLA-CF (fibra de carbono)',
@@ -11,6 +12,10 @@ const filaments=Object.freeze([
 const number=(v,field,max=1e9)=>{const n=typeof v==='number'?v:Number(String(v).replace(',','.'));if(v===''||v==null||!Number.isFinite(n)||n<0||n>max)throw Error('Revise '+field+'.');return n;};
 const optional=(v,f,max)=>v===''||v==null?null:number(v,f,max);
 const cents=v=>Math.round((v+Number.EPSILON)*100);
+function validOrderDate(value){
+ const timestamp=Date.parse(value+'T00:00:00Z');
+ return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(timestamp)&&new Date(timestamp).toISOString().slice(0,10)===value;
+}
 function decode(obs){
  if(typeof obs!=='string'||!obs.startsWith(PREFIX))return null;
  try{const x=JSON.parse(obs.slice(PREFIX.length));return x&&x.version===1&&typeof x==='object'?x:null;}catch{return null;}
@@ -64,7 +69,8 @@ function validate(x){
   const unit=Math.ceil(total/q);
   price={unit,discount:unit*q-total,total};
  }
- if(!/^\d{4}-\d{2}-\d{2}$/.test(x.data)||isNaN(Date.parse(x.data+'T12:00:00Z'))||new Date(x.data+'T12:00:00Z').toISOString().slice(0,10)!==x.data)throw Error('Informe uma data válida para o registro.');
+ if(!validOrderDate(x.data))throw Error('Informe uma data válida para o registro.');
+ if(x.prazo&&!validOrderDate(x.prazo))throw Error('Informe um prazo válido.');
  let status=x.status,received=null;
  if(x.recebido!==undefined){received=cents(number(x.recebido,'valor já recebido',1e7));if(received>price.total)throw Error('O valor recebido não pode ultrapassar o total do pedido.');status=received===price.total?'pago':'pendente';}
  if(!['pago','pendente'].includes(status))throw Error('Confirme se o pedido está pago ou não pago.');
@@ -77,6 +83,7 @@ function validate(x){
 function payload(input,params,vendedor){
  const x=validate(input),cost=x.tipo==='3d'?costing(x,params):null;
  const metadata={version:1,pronto:x.pronto,entregue:x.entregue,tipo:x.tipo,notas:x.obs,custo:cost,origem:x.origem||'manual',...filamentDetails(x)};
+ if(x.prazo)metadata.prazo=x.prazo;
  if(x.received!==null)metadata.pagamento={recebidoCentavos:x.received};
  return {data:x.data,cliente:x.cliente,descricao:x.descricao,produto_id:null,quantidade:x.quantidade,valor_unit:x.price.unit/100,desconto:x.price.discount/100,custo_unit:cost?.total==null?null:cost.total/100/x.quantidade,status:x.status,forma_pagamento:'outro',vendedor,obs:encode(metadata)};
 }
@@ -86,6 +93,7 @@ function preserveSale(payload,row){
  delete updated.vendedor;
  if(!decode(row.obs)?.custo&&updated.custo_unit==null)updated.custo_unit=row.custo_unit;
  const previous=decode(row.obs),next=decode(updated.obs);
+ if(previous?.ordemProducao){next.ordemProducao=previous.ordemProducao;updated.obs=encode(next);}
  if(previous?.pagamento&&!next.pagamento){
   const paid=payment(row);
   if(paid.received>orderCents(updated))throw Error('O total não pode ser menor que o valor já recebido.');
@@ -126,6 +134,40 @@ function productionLabel(state){
  if(state===false)return 'A produzir';
  return 'A conferir';
 }
+function queueOrderId(id){
+ const hex=String(id).replaceAll('-','');
+ return /^[0-9a-f]{32}$/i.test(hex)?BigInt('0x'+hex):0n;
+}
+function productionQueue(rows){
+ const waiting=[],inProgress=[];
+ for(const row of rows){
+  const meta=decode(row.obs);
+  if(meta?.tipo!=='3d'||(meta.pronto!==false&&meta.pronto!==inProduction))continue;
+  // Keep a stable starting order by date and ID, with room for single-row moves.
+  const day=validOrderDate(row.data)?BigInt(Date.parse(row.data+'T00:00:00Z')/86400000):0n;
+  const initial=(day*queueStep+queueOrderId(row.id))*queueStep;
+  const rank=typeof meta.ordemProducao==='string'&&/^-?\d{1,86}$/.test(meta.ordemProducao)?BigInt(meta.ordemProducao):initial;
+  (meta.pronto===inProduction?inProgress:waiting).push({row,meta,rank});
+ }
+ const compare=(a,b)=>a.rank===b.rank?String(a.row.id).localeCompare(String(b.row.id)):a.rank<b.rank?-1:1;
+ return {waiting:waiting.sort(compare),inProgress:inProgress.sort(compare)};
+}
+function queueMovePatch(waiting,from,to){
+ const entry=waiting[from];
+ if(!entry||!Number.isInteger(to)||to<0||to>=waiting.length||from===to)throw Error('Posição inválida na fila.');
+ const rest=waiting.filter((_,index)=>index!==from);
+ const before=rest[to-1]?.rank,after=rest[to]?.rank;
+ const id=queueOrderId(entry.row.id);
+ let rank;
+ if(before===undefined)rank=after-2n*queueStep+id;
+ else if(after===undefined)rank=before+queueStep+id;
+ else{
+  const gap=after-before;
+  if(gap<=1n)throw Error('Estas posições estão muito próximas. Mova um dos pedidos para o topo e tente novamente.');
+  rank=before+gap/4n+1n+(gap/2n-1n)*id/queueStep;
+ }
+ return situationPatch(entry.row,'ordemProducao',rank.toString());
+}
 function summary(rows){
  return rows.reduce((sum,row)=>{
   const meta=decode(row.obs),p=payment(row);
@@ -148,6 +190,6 @@ function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
  const keywords=[r.cliente,r.descricao,m?.material,m?.cor].filter(Boolean).join(' ');
  return normal(keywords).includes(normal(busca))&&matchesProduction&&matchesDelivery&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel,inProduction});
+root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel,productionQueue,queueMovePatch,inProduction});
 })(typeof globalThis==='object'?globalThis:this);
 

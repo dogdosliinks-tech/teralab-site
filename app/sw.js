@@ -1,4 +1,4 @@
-const CACHE = "teralab-gestao-v14-menu-producao";
+const CACHE = "teralab-gestao-v15-fila-producao";
 const ASSETS = [
   "./",
   "./index.html",
