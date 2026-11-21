@@ -125,7 +125,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .pedido-card-head>strong{white-space:nowrap;color:var(--orange);font-size:18px}
 .pedido-card-desc{font-size:16px;line-height:1.4;min-height:2.8em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .pedido-compact .meta{font-size:14px;justify-content:space-between}
-.pedido-compact .pedido-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding-block:8px;border-block:1px solid var(--border);margin:0}
+.pedido-compact .pedido-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding-block:8px;border-block:1px solid var(--border);margin:0}
 .pedido-compact .pedido-status dd{font-size:14px;margin:4px 0 0}
 .pedido-compact .pedido-money{font-size:14px;min-height:40px;line-height:1.45}
 .pedido-compact .pedido-actions{display:grid;grid-template-columns:1fr 1fr;border:0;padding:0;gap:8px}
@@ -148,7 +148,12 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .cliente-card p{color:var(--muted)}
 .clientes-list{margin-top:14px}
 .pedido-summary{grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr))}
-.pedido-actions .btn:is([data-status-action="paid"],[data-status-action="ready"],[data-status-action="delivered"])[aria-pressed="true"]{border-color:#27875b;background:#163427;color:var(--ok)}
+.pedido-actions .btn:is([data-status-action="paid"],[data-status-action="delivered"])[aria-pressed="true"]{border-color:#27875b;background:#163427;color:var(--ok)}
+.pedido-producao{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.pedido-producao select{min-height:44px;padding:8px 10px;color:var(--text);font-size:14px;font-weight:700;color-scheme:dark}
+.pedido-producao select[data-production="nao"]{border-color:var(--orange);background:#32220f;color:#ffaf64}
+.pedido-producao select[data-production="em-producao"]{border-color:#448de0;background:#142d4a;color:#9ac8ff}
+.pedido-producao select[data-production="sim"]{border-color:#27875b;background:#163427;color:var(--ok)}
 .pedido-detail-dialog{width:min(640px,calc(100% - 24px))}
 .pedido-detail-dialog .section-head h2{font-size:28px}
 @media(max-width:620px){.pedido-print-sheet{grid-template-columns:1fr}.pedido-dialog{padding:16px}}

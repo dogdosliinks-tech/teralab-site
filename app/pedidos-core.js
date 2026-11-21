@@ -1,6 +1,7 @@
 (function(root){
 'use strict';
 const PREFIX='TERALAB_PEDIDO_V1\n';
+const inProduction='em-producao';
 const defaults=Object.freeze({filamentoKg:100,embalagem:1,maquina:2000,vidaHoras:5000,residual:0,estimativa:true});
 const filaments=Object.freeze([
  'PLA', 'PLA+', 'PLA Silk', 'PLA Fosco', 'PLA-CF (fibra de carbono)',
@@ -67,7 +68,8 @@ function validate(x){
  let status=x.status,received=null;
  if(x.recebido!==undefined){received=cents(number(x.recebido,'valor já recebido',1e7));if(received>price.total)throw Error('O valor recebido não pode ultrapassar o total do pedido.');status=received===price.total?'pago':'pendente';}
  if(!['pago','pendente'].includes(status))throw Error('Confirme se o pedido está pago ou não pago.');
- for(const k of ['pronto','entregue'])if(![true,false,null].includes(x[k]))throw Error('Status inválido.');
+ if(![true,false,null,inProduction].includes(x.pronto))throw Error('Situação de produção inválida.');
+ if(![true,false,null].includes(x.entregue))throw Error('Situação de entrega inválida.');
  if(!['3d','software','outro'].includes(x.tipo))throw Error('Escolha o tipo de pedido.');
  const obs=String(x.obs||'').trim();if(obs.length>2500)throw Error('Observação muito longa.');
  return {...x,cliente,descricao,quantidade:q,price,status,received,obs};
@@ -114,13 +116,14 @@ function deliveryPatch(row,delivered){
  if(typeof delivered!=='boolean')throw Error('Situação de entrega inválida.');
  return situationPatch(row,'entregue',delivered);
 }
-function productionPatch(row,ready){
- if(typeof ready!=='boolean')throw Error('Situação de produção inválida.');
- return situationPatch(row,'pronto',ready);
+function productionPatch(row,state){
+ if(typeof state!=='boolean'&&state!==inProduction)throw Error('Situação de produção inválida.');
+ return situationPatch(row,'pronto',state);
 }
-function productionLabel(ready){
- if(ready===true)return 'Pronto';
- if(ready===false)return 'A produzir';
+function productionLabel(state){
+ if(state===true)return 'Pronto';
+ if(state===inProduction)return 'Em produção';
+ if(state===false)return 'A produzir';
  return 'A conferir';
 }
 function summary(rows){
@@ -129,21 +132,22 @@ function summary(rows){
   sum.total+=p.total;sum.pago+=p.received;sum.receber+=p.due;
   if(meta?.pronto===true)sum.prontos++;
   else if(meta?.pronto===false)sum.produzir++;
+  else if(meta?.pronto===inProduction)sum.emProducao++;
   else sum.conferirProducao++;
   if(meta?.entregue!==true)sum.entregar++;
   return sum;
- },{total:0,pago:0,receber:0,produzir:0,prontos:0,conferirProducao:0,entregar:0});
+ },{total:0,pago:0,receber:0,produzir:0,emProducao:0,prontos:0,conferirProducao:0,entregar:0});
 }
 function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
  const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const situations={sim:true,nao:false,conferir:null};
  return rows.filter(r=>{const m=decode(r.obs);
  const p=payment(r);
- const matchesProduction=!pronto||(m?.pronto??null)===situations[pronto];
+ const matchesProduction=!pronto||(m?.pronto??null)===(pronto===inProduction?inProduction:situations[pronto]);
  const matchesDelivery=!entregue||(m?.entregue??null)===situations[entregue];
  const keywords=[r.cliente,r.descricao,m?.material,m?.cor].filter(Boolean).join(' ');
  return normal(keywords).includes(normal(busca))&&matchesProduction&&matchesDelivery&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel});
+root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel,inProduction});
 })(typeof globalThis==='object'?globalThis:this);
 

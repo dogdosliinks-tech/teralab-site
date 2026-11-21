@@ -3,7 +3,11 @@ let pedidoEpoch=0;
 const pedidoText=v=>v===true?'Sim':v===false?'Não':'A conferir';
 const pedidoMeta=r=>TeraPedidos.decode(r?.obs)||{pronto:null,entregue:null,tipo:'3d',notas:r?.obs||'',custo:null};
 const pedidoInput=(n,title,type,value,attrs='')=>`<label>${title}<input name="${n}" type="${type}" value="${esc(value??'')}" ${attrs}></label>`;
-const pedidoSelect=(n,title,v,noLabel='Não',yesLabel='Sim')=>`<label>${title}<select name="${n}"><option value="">A conferir</option><option value="nao" ${v===false?'selected':''} >${noLabel}</option><option value="sim" ${v===true?'selected':''}>${yesLabel}</option></select></label>`;
+const pedidoProducao=[['nao',false],[TeraPedidos.inProduction,TeraPedidos.inProduction],['sim',true],['conferir',null]];
+function pedidoOpcoesProducao(selected,{allowUnknown=true}={}){
+ return pedidoProducao.filter(([,state])=>state!==null||allowUnknown||selected===null).map(([key,state])=>`<option value="${key}" ${state===selected?'selected':''} ${state===null&&!allowUnknown?'disabled':''}>${TeraPedidos.productionLabel(state)}</option>`).join('');
+}
+const pedidoSelectEntrega=(state)=>`<label>Foi entregue?<select name="entregue"><option value="">A conferir</option><option value="nao" ${state===false?'selected':''}>Não</option><option value="sim" ${state===true?'selected':''}>Sim</option></select></label>`;
 function pedidoCamposFilamento(prefix,values={}){
  return `<div class="pedido-cols">${pedidoInput('material','Material','text',values.material,`maxlength="80" list="${prefix}-materiais" placeholder="Ex.: PLA Silk" autocomplete="off"`)}${pedidoInput('cor','Cor','text',values.cor,`maxlength="80" list="${prefix}-cores" placeholder="Ex.: preto e dourado" autocomplete="off"`)}</div>`;
 }
@@ -27,7 +31,7 @@ async function renderPedidos(root){
  $('#pedido-copy').onclick=()=>{if(!pedidoState.rows.length)return toast('Aguarde o carregamento.');if(!confirm('Esta cópia contém clientes e valores. Baixar neste dispositivo?'))return;const b=new Blob([JSON.stringify({formato:'teralab-vendas-backup-v1',data:todayISO(),vendas:pedidoState.rows},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='teralab-pedidos-'+todayISO()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
  try{const all=[];let done=false;for(let page=0;page<20;page++){const {data,error}=await sb.from('vendas').select('*').order('data',{ascending:false}).order('id',{ascending:false}).range(page*1000,page*1000+999);if(error)throw error;all.push(...data);if(data.length<1000){done=true;break;}}if(!done)throw Error('Mais de 20 mil registros. A consulta precisa de paginação adicional.');if(epoch!==pedidoEpoch||view!=='pedidos')return;pedidoState.rows=all;}catch(e){if(epoch===pedidoEpoch)root.querySelector('.empty').textContent='Não foi possível carregar: '+e.message;return;}
  root.querySelector('.empty').remove();const area=document.createElement('div');root.append(area);
- area.innerHTML='<p class="pedido-hint">Todos os meses. O pagamento é compartilhado com a tela Vendas.</p><div class="grid-cards pedido-summary"></div><div class="pedido-filters"><label>Cliente, pedido, material ou cor<input type="search" name="busca" maxlength="100"></label><label>Produção<select name="pronto"><option value="">Todos</option><option value="nao">A produzir</option><option value="sim">Pronto</option><option value="conferir">A conferir</option></select></label><label>Entrega<select name="entregue"><option value="">Todos</option><option value="sim">Entregue</option><option value="nao">Não entregue</option><option value="conferir">A conferir</option></select></label><label>Pagamento<select name="pago"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Não pago (com saldo)</option><option value="parcial">Pago parcialmente</option></select></label><button class="btn" type="button" id="pedido-limpar-filtros" hidden>Limpar filtros</button></div><p class="pedido-count" role="status"></p><div class="list pedido-list"></div>';
+ area.innerHTML='<p class="pedido-hint">Todos os meses. O pagamento é compartilhado com a tela Vendas.</p><div class="grid-cards pedido-summary"></div><div class="pedido-filters"><label>Cliente, pedido, material ou cor<input type="search" name="busca" maxlength="100"></label><label>Produção<select name="pronto"><option value="">Todos</option>'+pedidoOpcoesProducao()+'</select></label><label>Entrega<select name="entregue"><option value="">Todos</option><option value="sim">Entregue</option><option value="nao">Não entregue</option><option value="conferir">A conferir</option></select></label><label>Pagamento<select name="pago"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Não pago (com saldo)</option><option value="parcial">Pago parcialmente</option></select></label><button class="btn" type="button" id="pedido-limpar-filtros" hidden>Limpar filtros</button></div><p class="pedido-count" role="status"></p><div class="list pedido-list"></div>';
  const filterFields=$$('input,select',area);
  const clearFilters=$('#pedido-limpar-filtros',area);
  for(const el of filterFields){el.value=pedidoState.filters[el.name]||'';el.oninput=()=>{pedidoState.filters[el.name]=el.value;draw();};}
@@ -61,7 +65,7 @@ async function renderPedidos(root){
   const print=$('#pedido-print',root);
   print.disabled=!rows.length;
   print.onclick=()=>pedidoPrint(rows);
-  $('.pedido-summary',area).innerHTML=`<div class="stat"><span>A receber</span><strong>${money(sum.receber/100)}</strong></div><div class="stat"><span>Pago</span><strong>${money(sum.pago/100)}</strong></div><div class="stat"><span>A produzir</span><strong>${sum.produzir}</strong></div><div class="stat"><span>Prontos</span><strong>${sum.prontos}</strong></div><div class="stat"><span>Produção a conferir</span><strong>${sum.conferirProducao}</strong></div><div class="stat"><span>Entregar / conferir</span><strong>${sum.entregar}</strong></div>`;
+  $('.pedido-summary',area).innerHTML=`<div class="stat"><span>A receber</span><strong>${money(sum.receber/100)}</strong></div><div class="stat"><span>Pago</span><strong>${money(sum.pago/100)}</strong></div><div class="stat"><span>A produzir</span><strong>${sum.produzir}</strong></div><div class="stat"><span>Em produção</span><strong>${sum.emProducao}</strong></div><div class="stat"><span>Prontos</span><strong>${sum.prontos}</strong></div><div class="stat"><span>Produção a conferir</span><strong>${sum.conferirProducao}</strong></div><div class="stat"><span>Entregar / conferir</span><strong>${sum.entregar}</strong></div>`;
   $('.pedido-count',area).textContent=rows.length+' pedido(s). Totais conforme os filtros.';
 
   const previous=visibleCards.get(changedId);
@@ -98,7 +102,7 @@ function renderPedidoForm(root,row=null,draft=null,options={}){
   ? input('desconto','Desconto do pedido (R$)','number',row.desconto,'required min="0" max="10000000" step="0.01" inputmode="decimal"')
   : '';
  const totalPreview=draft?'':'<div class="margin-box"><strong>Total do pedido</strong> <output id="pedido-total-calculado" aria-live="polite">—</output></div>';
- root.innerHTML=`<div class="section-head"><h2>${row?'Editar pedido':draft?'Conferir anotação':'Novo pedido'}</h2><button class="btn" id="pedido-back">Voltar</button></div><form id="pedido-form" class="form">${input('cliente','Nome do cliente','text',x.cliente,'required minlength="2" maxlength="100"')}${input('descricao','Tipo / descrição do pedido','text',x.descricao,'required minlength="2" maxlength="500"')}<label>Categoria<select name="tipo"><option value="3d">Impressão 3D</option><option value="software">Software / serviço</option><option value="outro">Outro</option></select></label>${pedidoCamposFilamento('pedido',draft||meta)}${pedidoSugestoesFilamento('pedido')}<div class="pedido-cols">${input('quantidade','Quantidade','number',x.quantidade,'required min="1" max="100000" step="1"')}${priceFields}</div>${discountField}${totalPreview}${input('data','Data do registro','date',x.data,'required')}${draft?'<p class="pedido-hint">Informe a data real ou escolha hoje para registrar a migração.</p>':''}<div class="pedido-cols">${pedidoSelect('pronto','Produção',x.pronto,'A produzir','Pronto')}${pedidoSelect('entregue','Foi entregue?',x.entregue)}</div>${input('recebido','Valor total já recebido (R$)','number',x.recebido,'required min="0" max="10000000" step="0.01" inputmode="decimal"')}<p class="pedido-hint">Informe zero se ainda não recebeu. Para pagamentos parciais, informe o total acumulado recebido.</p><fieldset id="pedido-costs"><legend>Custos do pedido inteiro</legend><p class="pedido-hint">Peso, horas e embalagens são os totais do pedido. Preencha zero somente se souber que não houve consumo.</p><div class="pedido-cols">${input('gramas','Filamento total (g)','number',x.gramas,'min="0" step="0.01"')}${input('horas','Tempo total de impressão (h)','number',x.horas,'min="0" step="0.01"')}${input('embalagens','Número de embalagens','number',x.embalagens,'min="0" step="1"')}</div><details><summary>Parâmetros de cálculo</summary><div class="pedido-cols">${input('filamentoKg','Filamento por kg (R$)','number',params.filamentoKg,'required min="0" step="0.01"')}${input('embalagem','Cada embalagem (R$)','number',params.embalagem,'required min="0" step="0.01"')}${input('maquina','Valor da impressora (R$)','number',params.maquina,'required min="0" step="0.01"')}${input('vidaHoras','Vida útil estimada (horas)','number',params.vidaHoras,'required min="1" step="1"')}${input('residual','Valor residual estimado (R$)','number',params.residual,'required min="0" step="0.01"')}</div><p class="pedido-hint">5.000 h é uma hipótese editável para orçamento. Os parâmetros ficam gravados com cada pedido, sem recalcular os anteriores.</p></details><div class="margin-box" id="pedido-preview" role="status"></div><p class="pedido-hint">Energia, manutenção e mão de obra não estão incluídas. Não desconte duas vezes a compra do mesmo material ao apurar margem.</p></fieldset><label>Observações<textarea name="obs" maxlength="2500"></textarea></label><p class="error" id="pedido-error" hidden role="alert"></p><button class="btn primary" type="submit" id="pedido-save">${draft?'Confirmar dados e importar':'Salvar pedido'}</button></form>`;
+ root.innerHTML=`<div class="section-head"><h2>${row?'Editar pedido':draft?'Conferir anotação':'Novo pedido'}</h2><button class="btn" id="pedido-back">Voltar</button></div><form id="pedido-form" class="form">${input('cliente','Nome do cliente','text',x.cliente,'required minlength="2" maxlength="100"')}${input('descricao','Tipo / descrição do pedido','text',x.descricao,'required minlength="2" maxlength="500"')}<label>Categoria<select name="tipo"><option value="3d">Impressão 3D</option><option value="software">Software / serviço</option><option value="outro">Outro</option></select></label>${pedidoCamposFilamento('pedido',draft||meta)}${pedidoSugestoesFilamento('pedido')}<div class="pedido-cols">${input('quantidade','Quantidade','number',x.quantidade,'required min="1" max="100000" step="1"')}${priceFields}</div>${discountField}${totalPreview}${input('data','Data do registro','date',x.data,'required')}${draft?'<p class="pedido-hint">Informe a data real ou escolha hoje para registrar a migração.</p>':''}<div class="pedido-cols"><label>Produção<select name="pronto">${pedidoOpcoesProducao(x.pronto??null)}</select></label>${pedidoSelectEntrega(x.entregue)}</div>${input('recebido','Valor total já recebido (R$)','number',x.recebido,'required min="0" max="10000000" step="0.01" inputmode="decimal"')}<p class="pedido-hint">Informe zero se ainda não recebeu. Para pagamentos parciais, informe o total acumulado recebido.</p><fieldset id="pedido-costs"><legend>Custos do pedido inteiro</legend><p class="pedido-hint">Peso, horas e embalagens são os totais do pedido. Preencha zero somente se souber que não houve consumo.</p><div class="pedido-cols">${input('gramas','Filamento total (g)','number',x.gramas,'min="0" step="0.01"')}${input('horas','Tempo total de impressão (h)','number',x.horas,'min="0" step="0.01"')}${input('embalagens','Número de embalagens','number',x.embalagens,'min="0" step="1"')}</div><details><summary>Parâmetros de cálculo</summary><div class="pedido-cols">${input('filamentoKg','Filamento por kg (R$)','number',params.filamentoKg,'required min="0" step="0.01"')}${input('embalagem','Cada embalagem (R$)','number',params.embalagem,'required min="0" step="0.01"')}${input('maquina','Valor da impressora (R$)','number',params.maquina,'required min="0" step="0.01"')}${input('vidaHoras','Vida útil estimada (horas)','number',params.vidaHoras,'required min="1" step="1"')}${input('residual','Valor residual estimado (R$)','number',params.residual,'required min="0" step="0.01"')}</div><p class="pedido-hint">5.000 h é uma hipótese editável para orçamento. Os parâmetros ficam gravados com cada pedido, sem recalcular os anteriores.</p></details><div class="margin-box" id="pedido-preview" role="status"></div><p class="pedido-hint">Energia, manutenção e mão de obra não estão incluídas. Não desconte duas vezes a compra do mesmo material ao apurar margem.</p></fieldset><label>Observações<textarea name="obs" maxlength="2500"></textarea></label><p class="error" id="pedido-error" hidden role="alert"></p><button class="btn primary" type="submit" id="pedido-save">${draft?'Confirmar dados e importar':'Salvar pedido'}</button></form>`;
  $('#pedido-back').onclick=()=>options.onCancel?options.onCancel():draft?renderPedidoDrafts(root):renderPedidos(root);const f=$('#pedido-form'),el=n=>f.elements.namedItem(n),val=n=>el(n).value;el('tipo').value=x.tipo||'3d';el('obs').value=x.obs||'';
  const totalOutput=$('#pedido-total-calculado',f);
  function updateOrderTotal(){
@@ -124,7 +128,8 @@ function renderPedidoForm(root,row=null,draft=null,options={}){
   try{
    if(!session||!perfil?.aprovado)throw Error('Entre novamente com uma conta aprovada.');
    const input=Object.fromEntries(new FormData(f));
-   for(const k of ['pronto','entregue'])input[k]=val(k)==='sim'?true:val(k)==='nao'?false:null;
+   input.pronto=pedidoProducao.find(([key])=>key===val('pronto'))?.[1]??null;
+   input.entregue=val('entregue')==='sim'?true:val('entregue')==='nao'?false:null;
    input.origem=draft?'caderneta-foto-conferida':meta.origem||'manual';
    const payload=TeraPedidos.preserveSale(TeraPedidos.payload(input,config(),perfil.id),row);
    let result;
@@ -167,25 +172,43 @@ function pedidoEnhanceCard(root,card,row,onChange){
  paidButton.dataset.statusAction='paid';
  const unpaidButton=button('Não pago',p.due>0,()=>pedidoPagamento(root,row,'aberto',patch=>onChange(patch,'unpaid')));
  unpaidButton.dataset.statusAction='unpaid';
- const situationAction=(action,label,current,value,makePatch,feedback)=>{
-  const b=button(label,current===value,async()=>{
-   if(current===value)return;
-   const group=Array.from(actions.querySelectorAll('button'));
-   group.forEach(control=>{control.disabled=true;});
-   try{
-    const patch=makePatch(row,value);
-    await pedidoUpdate(row,patch);
-    onChange(patch,action);
-    toast(feedback);
-   }catch(e){toast(e.message);}
-   finally{group.forEach(control=>{control.disabled=false;});}
+ const saveSituation=async(control,patch,feedback,restore)=>{
+  const group=Array.from(actions.querySelectorAll('button,select'));
+  const restoreFocus=document.activeElement===control;
+  group.forEach(field=>{field.disabled=true;});
+  try{
+   await pedidoUpdate(row,patch);
+   onChange(patch,control.dataset.statusAction);
+   toast(feedback);
+  }catch(e){restore?.();toast(e.message);}
+  finally{
+   group.forEach(field=>{field.disabled=false;});
+   if(restoreFocus&&control.isConnected&&document.activeElement===document.body)control.focus({preventScroll:true});
+  }
+ };
+ const production=document.createElement('select');
+ production.dataset.statusAction='production';
+ production.setAttribute('aria-label','Produção do pedido de '+row.cliente);
+ production.innerHTML=pedidoOpcoesProducao(m.pronto,{allowUnknown:false});
+ const savedProduction=production.value;
+ production.dataset.production=savedProduction;
+ production.onchange=()=>{
+  const choice=pedidoProducao.find(([key])=>key===production.value);
+  if(!choice||choice[1]===null||m.pronto===choice[1])return;
+  saveSituation(production,TeraPedidos.productionPatch(row,choice[1]),'Produção atualizada',()=>{production.value=savedProduction;});
+ };
+ const productionField=document.createElement('label');
+ productionField.className='pedido-producao';
+ productionField.append('Produção',production);
+ actions.append(productionField);
+ const deliveryAction=(action,label,value)=>{
+  const b=button(label,m.entregue===value,()=>{
+   if(m.entregue!==value)saveSituation(b,TeraPedidos.deliveryPatch(row,value),'Entrega atualizada');
   });
   b.dataset.statusAction=action;
  };
- situationAction('ready','Pronto',m.pronto,true,TeraPedidos.productionPatch,'Produção atualizada');
- situationAction('to-make','A produzir',m.pronto,false,TeraPedidos.productionPatch,'Produção atualizada');
- situationAction('delivered','Entregue',m.entregue,true,TeraPedidos.deliveryPatch,'Entrega atualizada');
- situationAction('undelivered','Não entregue',m.entregue,false,TeraPedidos.deliveryPatch,'Entrega atualizada');
+ deliveryAction('delivered','Entregue',true);
+ deliveryAction('undelivered','Não entregue',false);
  button('Imprimir pedido',null,()=>pedidoPrint([row]));
  card.append(actions);
 }
@@ -219,7 +242,7 @@ function pedidoPrint(rows){
 function pedidoCard(root,row,onChange){
  const meta=pedidoMeta(row),card=document.createElement('article');
  card.className='card pedido-card pedido-compact';
- card.innerHTML='<div class="pedido-card-head"><h3>'+esc(row.cliente||'Cliente não informado')+'</h3><strong>'+money(saleTotal(row))+'</strong></div><p class="pedido-card-desc">'+esc(row.descricao||'Pedido')+'</p>'+pedidoLinhaFilamento(meta)+'<div class="meta"><span>'+esc(row.quantidade)+' unidade(s)</span><span>'+esc(row.data)+'</span></div><dl class="pedido-status"><div><dt>Produção</dt><dd>'+TeraPedidos.productionLabel(meta.pronto)+'</dd></div><div><dt>Entregue</dt><dd>'+pedidoText(meta.entregue)+'</dd></div><div><dt>Pago</dt><dd></dd></div></dl><button class="btn pedido-details" type="button">Ver detalhes</button>';
+ card.innerHTML='<div class="pedido-card-head"><h3>'+esc(row.cliente||'Cliente não informado')+'</h3><strong>'+money(saleTotal(row))+'</strong></div><p class="pedido-card-desc">'+esc(row.descricao||'Pedido')+'</p>'+pedidoLinhaFilamento(meta)+'<div class="meta"><span>'+esc(row.quantidade)+' unidade(s)</span><span>'+esc(row.data)+'</span></div><dl class="pedido-status"><div><dt>Entregue</dt><dd>'+pedidoText(meta.entregue)+'</dd></div><div><dt>Pago</dt><dd></dd></div></dl><button class="btn pedido-details" type="button">Ver detalhes</button>';
  card.querySelector('.pedido-details').onclick=()=>pedidoDetails(root,row);
  pedidoEnhanceCard(root,card,row,onChange);
  const print=card.querySelector('.pedido-actions button:last-child'),footer=document.createElement('div');footer.className='pedido-card-footer';
