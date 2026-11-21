@@ -30,6 +30,7 @@ async function renderNovaVenda(root) {
         <label id="venda-cliente-avulso">Nome do cliente avulso (opcional) <input name="cliente" maxlength="120"></label>
       </fieldset>
       <div class="list" id="venda-itens"></div>
+      ${pedidoSugestoesFilamento('venda')}
       <button class="btn" type="button" id="venda-adicionar">Adicionar produto</button>
       <div class="pedido-cols">
         <label>Forma de pagamento <select name="forma_pagamento">${PAY.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>
@@ -138,6 +139,7 @@ async function renderNovaVenda(root) {
       <legend></legend>
       <label>Produto <select name="produto_id"></select></label>
       <label>Descrição <input name="descricao" placeholder="Nome da peça ou serviço"></label>
+      ${pedidoCamposFilamento('venda')}
       <div class="pedido-cols">
         <label>Quantidade <input name="quantidade" type="number" min="1" max="100000" step="1" inputmode="numeric" value="1" required></label>
         <label>Valor unitário (R$) <input name="valor_unit" type="number" min="0" max="10000000" step="0.01" inputmode="decimal" required></label>
@@ -208,7 +210,22 @@ async function renderNovaVenda(root) {
       vendedor: perfil.id,
       obs: field('obs').trim() || null,
     };
-    const payload = items().map((item) => ({ ...shared, ...lerItemVenda(item) }));
+    let payload;
+    try {
+      payload = items().map((item) => {
+        const details = TeraPedidos.filamentDetails({
+          material: item.elements.namedItem('material').value,
+          cor: item.elements.namedItem('cor').value,
+        });
+        const obs = details.material || details.cor
+          ? TeraPedidos.encode({ pronto: null, entregue: null, tipo: '3d', notas: shared.obs || '', ...details })
+          : shared.obs;
+        return { ...shared, ...lerItemVenda(item), obs };
+      });
+    } catch (error) {
+      errBox(errorBox, error);
+      return;
+    }
     const controls = [...form.querySelectorAll('button,input,select,textarea')].filter((control) => !control.disabled);
     controls.forEach((control) => { control.disabled = true; });
     try {

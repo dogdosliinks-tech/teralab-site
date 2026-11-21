@@ -2,6 +2,11 @@
 'use strict';
 const PREFIX='TERALAB_PEDIDO_V1\n';
 const defaults=Object.freeze({filamentoKg:100,embalagem:1,maquina:2000,vidaHoras:5000,residual:0,estimativa:true});
+const filaments=Object.freeze([
+ 'PLA', 'PLA+', 'PLA Silk', 'PLA Fosco', 'PLA-CF (fibra de carbono)',
+ 'PETG', 'PETG HF', 'PETG-CF (fibra de carbono)', 'ABS', 'ASA', 'TPU (flexível)',
+ 'Nylon (PA)', 'PA-CF (nylon com fibra de carbono)', 'PC (policarbonato)', 'PVA', 'HIPS'
+]);
 const number=(v,field,max=1e9)=>{const n=typeof v==='number'?v:Number(String(v).replace(',','.'));if(v===''||v==null||!Number.isFinite(n)||n<0||n>max)throw Error('Revise '+field+'.');return n;};
 const optional=(v,f,max)=>v===''||v==null?null:number(v,f,max);
 const cents=v=>Math.round((v+Number.EPSILON)*100);
@@ -10,6 +15,15 @@ function decode(obs){
  try{const x=JSON.parse(obs.slice(PREFIX.length));return x&&x.version===1&&typeof x==='object'?x:null;}catch{return null;}
 }
 function encode(x){return PREFIX+JSON.stringify({...x,version:1});}
+function filamentDetails({material,cor}){
+ const detail={};
+ for(const [key,value] of [['material',material],['cor',cor]]){
+  const text=String(value??'').trim();
+  if(text.length>80)throw Error('Informe '+key+' com até 80 caracteres.');
+  if(text)detail[key]=text;
+ }
+ return detail;
+}
 function costing(x,params=defaults){
  const c={...params};
  for(const k of ['filamentoKg','embalagem','maquina','vidaHoras','residual'])c[k]=number(c[k],k);
@@ -60,7 +74,7 @@ function validate(x){
 }
 function payload(input,params,vendedor){
  const x=validate(input),cost=x.tipo==='3d'?costing(x,params):null;
- const metadata={version:1,pronto:x.pronto,entregue:x.entregue,tipo:x.tipo,notas:x.obs,custo:cost,origem:x.origem||'manual'};
+ const metadata={version:1,pronto:x.pronto,entregue:x.entregue,tipo:x.tipo,notas:x.obs,custo:cost,origem:x.origem||'manual',...filamentDetails(x)};
  if(x.received!==null)metadata.pagamento={recebidoCentavos:x.received};
  return {data:x.data,cliente:x.cliente,descricao:x.descricao,produto_id:null,quantidade:x.quantidade,valor_unit:x.price.unit/100,desconto:x.price.discount/100,custo_unit:cost?.total==null?null:cost.total/100/x.quantidade,status:x.status,forma_pagamento:'outro',vendedor,obs:encode(metadata)};
 }
@@ -127,8 +141,9 @@ function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
  const p=payment(r);
  const matchesProduction=!pronto||(m?.pronto??null)===situations[pronto];
  const matchesDelivery=!entregue||(m?.entregue??null)===situations[entregue];
- return normal(r.cliente+' '+r.descricao).includes(normal(busca))&&matchesProduction&&matchesDelivery&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
+ const keywords=[r.cliente,r.descricao,m?.material,m?.cor].filter(Boolean).join(' ');
+ return normal(keywords).includes(normal(busca))&&matchesProduction&&matchesDelivery&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel});
+root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel});
 })(typeof globalThis==='object'?globalThis:this);
 
