@@ -1,4 +1,4 @@
-const pedidoState={rows:[],filters:{},params:{...TeraPedidos.defaults},drafts:[],panel:'orders'};
+const pedidoState={rows:[],filters:{orders:{},archive:{}},params:{...TeraPedidos.defaults},drafts:[],panel:'orders'};
 let pedidoEpoch=0;
 const pedidoText=v=>v===true?'Sim':v===false?'Não':'A conferir';
 const pedidoMeta=r=>TeraPedidos.decode(r?.obs)||{pronto:null,entregue:null,tipo:'3d',notas:r?.obs||'',custo:null};
@@ -22,9 +22,14 @@ function pedidoLinhaFilamento(meta){
  if(meta.cor)parts.push(`<strong>Cor:</strong> ${esc(meta.cor)}`);
  return parts.length?`<p class="pedido-filamento">${parts.join(' · ')}</p>`:'';
 }
+function pedidoArchiveMessage(previous,updated){
+ const archived=TeraPedidos.isArchived(updated);
+ if(archived===Boolean(previous&&TeraPedidos.isArchived(previous)))return '';
+ return archived?'Pedido arquivado':'Pedido voltou para Em aberto';
+}
 async function renderPedidos(root){
  const epoch=++pedidoEpoch;
- root.innerHTML='<div class="section-head"><h2>Caderneta de pedidos</h2><button class="btn" id="pedido-new">Novo pedido</button></div><div class="row" role="group" aria-label="Visualização de pedidos"><button class="btn pedido-view-button" id="pedido-view-orders" type="button" aria-controls="pedido-order-list" aria-pressed="true" disabled>Todos os pedidos</button><button class="btn pedido-view-button" id="pedido-view-queue" type="button" aria-controls="pedido-queue" aria-pressed="false" disabled>Fila de produção</button></div><div id="pedido-order-list"><div class="row pedido-toolbar"><button class="btn" id="pedido-import">Conferir caderneta</button><button class="btn" id="pedido-copy">Baixar cópia</button><button class="btn" id="pedido-print" disabled>Imprimir pedidos filtrados</button><input id="pedido-file" type="file" accept="application/json,.json" hidden></div><p class="empty">Carregando…</p></div><section id="pedido-queue" aria-labelledby="pedido-queue-title" hidden></section>';
+ root.innerHTML='<div class="section-head"><h2>Caderneta de pedidos</h2><button class="btn" id="pedido-new">Novo pedido</button></div><div class="row" role="group" aria-label="Visualização de pedidos"><button class="btn pedido-view-button" id="pedido-view-orders" type="button" aria-controls="pedido-order-list" aria-pressed="true" disabled>Em aberto</button><button class="btn pedido-view-button" id="pedido-view-queue" type="button" aria-controls="pedido-queue" aria-pressed="false" disabled>Fila de produção</button><button class="btn pedido-view-button" id="pedido-view-archive" type="button" aria-controls="pedido-order-list" aria-pressed="false" disabled>Arquivados</button></div><div id="pedido-order-list"><div class="row pedido-toolbar"><button class="btn" id="pedido-import">Conferir caderneta</button><button class="btn" id="pedido-copy">Baixar cópia</button><button class="btn" id="pedido-print" disabled>Imprimir pedidos filtrados</button><input id="pedido-file" type="file" accept="application/json,.json" hidden></div><p class="empty">Carregando…</p></div><section id="pedido-queue" aria-labelledby="pedido-queue-title" hidden></section>';
  $('#pedido-new').onclick=()=>pedidoEditDialog(root);
  $('#pedido-import').onclick=()=>$('#pedido-file').click();
  $('#pedido-file').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>1000000)throw Error('Use um arquivo de até 1 MB.');const x=JSON.parse(await file.text());if(x.formato!=='teralab-caderneta-rascunho-v1'||!Array.isArray(x.pedidos)||x.pedidos.length>200)throw Error('Use o arquivo de rascunhos da caderneta.');pedidoState.drafts=x.pedidos;renderPedidoDrafts(root);}catch(e){toast(e.message);}};
@@ -32,14 +37,15 @@ async function renderPedidos(root){
  try{const all=[];let done=false;for(let page=0;page<20;page++){const {data,error}=await sb.from('vendas').select('*').order('data',{ascending:false}).order('id',{ascending:false}).range(page*1000,page*1000+999);if(error)throw error;all.push(...data);if(data.length<1000){done=true;break;}}if(!done)throw Error('Mais de 20 mil registros. A consulta precisa de paginação adicional.');if(epoch!==pedidoEpoch||view!=='pedidos')return;pedidoState.rows=all;}catch(e){if(epoch===pedidoEpoch)root.querySelector('.empty').textContent='Não foi possível carregar: '+e.message;return;}
  root.querySelector('.empty').remove();
  const orders=$('#pedido-order-list',root),queue=$('#pedido-queue',root),area=document.createElement('div');
- const ordersTab=$('#pedido-view-orders',root),queueTab=$('#pedido-view-queue',root);
+ const tabs=Object.fromEntries(['orders','queue','archive'].map(panel=>[panel,$('#pedido-view-'+panel,root)]));
  area.className='pedido-list-area';orders.append(area);
  area.innerHTML='<p class="pedido-hint">Todos os meses. O pagamento é compartilhado com a tela Vendas.</p><div class="grid-cards pedido-summary"></div><div class="pedido-filters"><label>Cliente, pedido, material ou cor<input type="search" name="busca" maxlength="100"></label><label>Produção<select name="pronto"><option value="">Todos</option>'+pedidoOpcoesProducao()+'</select></label><label>Entrega<select name="entregue"><option value="">Todos</option><option value="sim">Entregue</option><option value="nao">Não entregue</option><option value="conferir">A conferir</option></select></label><label>Pagamento<select name="pago"><option value="">Todos</option><option value="pago">Pago</option><option value="pendente">Não pago (com saldo)</option><option value="parcial">Pago parcialmente</option></select></label><button class="btn" type="button" id="pedido-limpar-filtros" hidden>Limpar filtros</button></div><p class="pedido-count" role="status"></p><div class="list pedido-list"></div>';
  const filterFields=$$('input,select',area);
  const clearFilters=$('#pedido-limpar-filtros',area);
- for(const el of filterFields){el.value=pedidoState.filters[el.name]||'';el.oninput=()=>{pedidoState.filters[el.name]=el.value;draw();};}
+ const filterState=()=>pedidoState.filters[pedidoState.panel];
+ for(const el of filterFields)el.oninput=()=>{filterState()[el.name]=el.value;draw();};
  clearFilters.onclick=()=>{
-  pedidoState.filters={};
+  pedidoState.filters[pedidoState.panel]={};
   filterFields.forEach(field=>{field.value='';});
   draw();
   filterFields[0].focus({preventScroll:true});
@@ -51,9 +57,11 @@ async function renderPedidos(root){
   if(epoch!==pedidoEpoch||view!=='pedidos'||!area.isConnected)return;
   const index=pedidoState.rows.findIndex(entry=>entry.id===row.id);
   if(index<0)return;
-  pedidoState.rows[index]={...pedidoState.rows[index],...patch};
-  if(pedidoState.panel==='orders')draw(row.id,action);
-  else drawQueue();
+  const previous=pedidoState.rows[index],updated={...previous,...patch};
+  pedidoState.rows[index]=updated;
+  if(pedidoState.panel==='queue')drawQueue();
+  else draw(row.id,action);
+  return pedidoArchiveMessage(previous,updated);
  }
 
  function makeCard(row){
@@ -63,44 +71,57 @@ async function renderPedidos(root){
  }
 
  function draw(changedId,action){
-  const rows=TeraPedidos.filter(pedidoState.rows,pedidoState.filters);
+  const archived=pedidoState.panel==='archive';
+  const rows=TeraPedidos.filter(pedidoState.rows,{...filterState(),arquivado:archived});
   clearFilters.hidden=!filterFields.some(field=>field.value);
   const sum=TeraPedidos.summary(rows);
   const print=$('#pedido-print',root);
   print.disabled=!rows.length;
   print.onclick=()=>pedidoPrint(rows);
   $('.pedido-summary',area).innerHTML=`<div class="stat"><span>A receber</span><strong>${money(sum.receber/100)}</strong></div><div class="stat"><span>Pago</span><strong>${money(sum.pago/100)}</strong></div><div class="stat"><span>A produzir</span><strong>${sum.produzir}</strong></div><div class="stat"><span>Em produção</span><strong>${sum.emProducao}</strong></div><div class="stat"><span>Prontos</span><strong>${sum.prontos}</strong></div><div class="stat"><span>Produção a conferir</span><strong>${sum.conferirProducao}</strong></div><div class="stat"><span>Entregar / conferir</span><strong>${sum.entregar}</strong></div>`;
-  $('.pedido-count',area).textContent=rows.length+' pedido(s). Totais conforme os filtros.';
+  $('.pedido-count',area).textContent=rows.length+(archived?' pedido(s) arquivado(s).':' pedido(s) em aberto. Totais conforme os filtros.');
 
   const previous=visibleCards.get(changedId);
   if(previous){
    const updated=rows.find(row=>row.id===changedId);
+   const keepFocus=document.activeElement===document.body||previous.contains(document.activeElement);
    if(updated){
-    const keepFocus=document.activeElement===document.body||previous.contains(document.activeElement);
     const card=makeCard(updated);
     previous.replaceWith(card);
     if(keepFocus&&action)card.querySelector(`[data-status-action="${action}"]`)?.focus({preventScroll:true});
    }else{
     previous.remove();
     visibleCards.delete(changedId);
+    if(keepFocus&&action)tabs[pedidoState.panel].focus({preventScroll:true});
    }
   }else{
    visibleCards.clear();
    list.replaceChildren(...rows.map(makeCard));
   }
-  if(!rows.length)list.innerHTML='<p class="empty">Nenhum pedido nestes filtros.</p>';
+  if(!rows.length){
+   const message=!clearFilters.hidden?'Nenhum pedido nestes filtros.':archived?'Nenhum pedido arquivado.':'Nenhum pedido em aberto.';
+   list.innerHTML=`<p class="empty">${message}</p>`;
+  }
  }
  const drawQueue=pedidoQueueView(queue,applyChange);
  function showPanel(panel){
   pedidoState.panel=panel;
-  orders.hidden=panel!=='orders';queue.hidden=panel!=='queue';
-  ordersTab.setAttribute('aria-pressed',String(!orders.hidden));
-  queueTab.setAttribute('aria-pressed',String(!queue.hidden));
-  if(queue.hidden)draw();else drawQueue();
+  orders.hidden=panel==='queue';queue.hidden=!orders.hidden;
+  for(const [name,tab] of Object.entries(tabs))tab.setAttribute('aria-pressed',String(name===panel));
+  if(queue.hidden){
+   const archived=panel==='archive';
+   for(const field of filterFields){
+    field.value=filterState()[field.name]||'';
+    if(field.name==='entregue'||field.name==='pago')field.parentElement.hidden=archived;
+   }
+   $('.pedido-summary',area).hidden=archived;
+   draw();
+  }else drawQueue();
  }
- ordersTab.disabled=queueTab.disabled=false;
- ordersTab.onclick=()=>showPanel('orders');
- queueTab.onclick=()=>showPanel('queue');
+ for(const [panel,tab] of Object.entries(tabs)){
+  tab.disabled=false;
+  tab.onclick=()=>showPanel(panel);
+ }
  showPanel(pedidoState.panel);
 }
 function pedidoQueueView(root,applyChange){
@@ -231,7 +252,7 @@ function renderPedidoForm(root,row=null,draft=null,options={}){
    if(result.error)throw result.error;
    if(input.tipo==='3d')pedidoState.params={...config()};
    if(draft)draft.importado=true;
-   toast('Pedido salvo');if(options.onSave)await options.onSave();else draft?renderPedidoDrafts(root):renderPedidos(root);
+   toast(pedidoArchiveMessage(row,{...row,...payload})||'Pedido salvo');if(options.onSave)await options.onSave();else draft?renderPedidoDrafts(root):renderPedidos(root);
   }catch(e){errBox(error,e);b.disabled=false;}
  };
 }
@@ -262,8 +283,7 @@ function pedidoEnhanceCard(root,card,row,onChange){
   group.forEach(field=>{field.disabled=true;});
   try{
    await pedidoUpdate(row,patch);
-   onChange(patch,control.dataset.statusAction);
-   toast(feedback);
+   toast(onChange(patch,control.dataset.statusAction)||feedback);
   }catch(e){restore?.();toast(e.message);}
   finally{
    group.forEach(field=>{field.disabled=false;});
@@ -308,7 +328,7 @@ function pedidoPagamento(root,row,mode,refresh=()=>renderPedidos(root)){
  const preview=()=>{try{const patch=TeraPedidos.paymentPatch(row,mode,field.value,perfil?.id),next=TeraPedidos.payment({...row,...patch});form.querySelector('[role=status]').textContent='Recebido '+money(next.received/100)+' · Falta pagar '+money(next.due/100);}catch(e){form.querySelector('[role=status]').textContent=e.message;}};
  field.oninput=preview;preview();
  form.onsubmit=async e=>{e.preventDefault();if(saving)return;saving=true;save.disabled=cancel.disabled=true;error.hidden=true;
-  try{const patch=TeraPedidos.paymentPatch(row,mode,field.value,perfil?.id);await pedidoUpdate(row,patch);saving=false;close();toast('Pagamento atualizado');await refresh(patch);}
+  try{const patch=TeraPedidos.paymentPatch(row,mode,field.value,perfil?.id);await pedidoUpdate(row,patch);saving=false;close();toast(await refresh(patch)||'Pagamento atualizado');}
   catch(e){saving=false;save.disabled=cancel.disabled=false;errBox(error,e);}
  };
  dialog.showModal();field.focus();field.select();

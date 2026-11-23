@@ -102,10 +102,13 @@ function preserveSale(payload,row){
  return updated;
 }
 function orderCents(row){return cents(Number(row.quantidade)*Number(row.valor_unit)-Number(row.desconto||0));}
-function payment(row){
- const total=orderCents(row),stored=decode(row.obs)?.pagamento?.recebidoCentavos;
+function payment(row,meta=decode(row.obs)){
+ const total=orderCents(row),stored=meta?.pagamento?.recebidoCentavos;
  const received=Number.isSafeInteger(stored)&&stored>=0&&stored<=total?stored:row.status==='pago'?total:0;
  return {total,received,due:total-received,partial:received>0&&received<total};
+}
+function isArchived(row,meta=decode(row.obs),paid=payment(row,meta)){
+ return meta?.entregue===true&&paid.due===0;
 }
 function paymentPatch(row,mode,amount,actor,at=new Date().toISOString()){
  if(!['recebido','aberto'].includes(mode))throw Error('Escolha o tipo de valor.');
@@ -142,7 +145,7 @@ function productionQueue(rows){
  const waiting=[],inProgress=[];
  for(const row of rows){
   const meta=decode(row.obs);
-  if(meta?.tipo!=='3d'||(meta.pronto!==false&&meta.pronto!==inProduction))continue;
+  if(meta?.tipo!=='3d'||(meta.pronto!==false&&meta.pronto!==inProduction)||isArchived(row,meta))continue;
   // Keep a stable starting order by date and ID, with room for single-row moves.
   const day=validOrderDate(row.data)?BigInt(Date.parse(row.data+'T00:00:00Z')/86400000):0n;
   const initial=(day*queueStep+queueOrderId(row.id))*queueStep;
@@ -170,7 +173,7 @@ function queueMovePatch(waiting,from,to){
 }
 function summary(rows){
  return rows.reduce((sum,row)=>{
-  const meta=decode(row.obs),p=payment(row);
+  const meta=decode(row.obs),p=payment(row,meta);
   sum.total+=p.total;sum.pago+=p.received;sum.receber+=p.due;
   if(meta?.pronto===true)sum.prontos++;
   else if(meta?.pronto===false)sum.produzir++;
@@ -180,16 +183,17 @@ function summary(rows){
   return sum;
  },{total:0,pago:0,receber:0,produzir:0,emProducao:0,prontos:0,conferirProducao:0,entregar:0});
 }
-function filter(rows,{busca='',pronto='',entregue='',pago=''}={}){
+function filter(rows,{busca='',pronto='',entregue='',pago='',arquivado}={}){
  const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const situations={sim:true,nao:false,conferir:null};
  return rows.filter(r=>{const m=decode(r.obs);
- const p=payment(r);
+ const p=payment(r,m);
+ if(arquivado!==undefined&&isArchived(r,m,p)!==arquivado)return false;
  const matchesProduction=!pronto||(m?.pronto??null)===(pronto===inProduction?inProduction:situations[pronto]);
  const matchesDelivery=!entregue||(m?.entregue??null)===situations[entregue];
  const keywords=[r.cliente,r.descricao,m?.material,m?.cor].filter(Boolean).join(' ');
  return normal(keywords).includes(normal(busca))&&matchesProduction&&matchesDelivery&&(!pago||(pago==='parcial'?p.partial:pago==='pago'?p.due===0:p.due>0));});
 }
-root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,paymentPatch,deliveryPatch,productionPatch,productionLabel,productionQueue,queueMovePatch,inProduction});
+root.TeraPedidos=Object.freeze({defaults,filaments,filamentDetails,decode,encode,costing,validate,payload,preserveSale,summary,filter,cents,orderPrice,payment,isArchived,paymentPatch,deliveryPatch,productionPatch,productionLabel,productionQueue,queueMovePatch,inProduction});
 })(typeof globalThis==='object'?globalThis:this);
 
